@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alocação de Projetos</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--bg2:#161922;--bg3:#1e2330;--bg4:#252c3a;
+  --border:#2d3548;--border2:#3d4a62;
+  --text:#e8eaf0;--text2:#9aa3b8;--text3:#636d85;
+  --accent:#5b8aff;--accent2:#3d6be8;
+  --success:#2dd4a0;--success-bg:#0d2d24;
+  --warning:#f5a623;--warning-bg:#2d2010;
+  --danger:#ff5c7a;--danger-bg:#2d1020;
+  --farmer:#a78bfa;--farmer-bg:#1e1535;
+  --auditoria:#34d399;--auditoria-bg:#0d2d1f;
+  --ds:#60a5fa;--ds-bg:#0d1f35;
+  --dev:#fb923c;--dev-bg:#2d1a0d;
+  --fde:#f472b6;--fde-bg:#2d0d1f;
+  --suporte:#38bdf8;--suporte-bg:#0c1f2d;
+  --rad:8px;--rad-lg:12px;--rad-xl:16px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+h1,h2,h3,h4{font-family:'Syne',sans-serif}
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* LOADING SCREEN */
+#loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px}
+#loading-screen .logo{font-family:'Syne',sans-serif;font-weight:700;font-size:24px;color:var(--accent)}
+#loading-screen .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+#loading-screen .msg{font-size:14px;color:var(--text3)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* SYNC INDICATOR */
+#sync-indicator{position:fixed;bottom:16px;right:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad-lg);padding:8px 14px;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+#sync-indicator.show{opacity:1}
+#sync-indicator .dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+#sync-indicator.saving .dot{background:var(--warning);animation:pulse 1s infinite}
+#sync-indicator.error .dot{background:var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* NAV */
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:32px;height:56px;flex-shrink:0}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:var(--accent);letter-spacing:-0.5px;margin-right:16px}
+.nav-btn{background:none;border:none;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;padding:6px 12px;border-radius:var(--rad);transition:all .2s;position:relative}
+.nav-btn:hover{color:var(--text);background:var(--bg3)}
+.nav-btn.active{color:var(--accent);background:rgba(91,138,255,.1)}
+.nav-btn.active::after{content:'';position:absolute;bottom:-1px;left:12px;right:12px;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 2s infinite}
+
+main{flex:1;overflow-y:auto;padding:28px}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad-lg);padding:20px 24px}
+.stat-label{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:8px;font-weight:500}
+.stat-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:700}
+.stat-value.all{color:var(--accent)}.stat-value.open{color:var(--warning)}.stat-value.closed{color:var(--success)}
+
+.toolbar{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
+.btn{padding:9px 18px;border-radius:var(--rad);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{background:var(--bg4);border-color:var(--border2)}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid rgba(255,92,122,.3);padding:6px 12px;font-size:13px}.btn-danger:hover{background:var(--danger-bg)}
+.btn-edit{background:transparent;color:var(--accent);border:1px solid rgba(91,138,255,.3);padding:6px 12px;font-size:13px}.btn-edit:hover{background:rgba(91,138,255,.1)}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+.filters{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filter-select,.filter-input{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:8px 14px;outline:none;transition:border-color .2s}
+.filter-select:focus,.filter-input:focus{border-color:var(--accent)}
+.filter-input{min-width:200px}
+.filter-label{font-size:13px;color:var(--text2);font-weight:500}
+
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.vcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad-lg);padding:20px;transition:border-color .2s;position:relative;overflow:hidden}
+.vcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.vcard.open::before{background:var(--warning)}.vcard.closed::before{background:var(--success)}
+.vcard:hover{border-color:var(--border2)}
+.vcard-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.vcard-project{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-open{background:var(--warning-bg);color:var(--warning)}.badge-closed{background:var(--success-bg);color:var(--success)}
+.vcard-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-size:12px;padding:3px 10px;border-radius:20px;font-weight:500}
+.tag-neg{background:#2d2010;color:#f59e0b}.tag-imp{background:#0d1f2d;color:#3b82f6}
+.tag-ado{background:#0d2520;color:#10b981}.tag-gv{background:#1a0d2d;color:#8b5cf6}.tag-exp{background:#2d0d1f;color:#ec4899}
+.tag-farmer{background:var(--farmer-bg);color:var(--farmer)}.tag-auditoria{background:var(--auditoria-bg);color:var(--auditoria)}
+.tag-ds{background:var(--ds-bg);color:var(--ds)}.tag-dev{background:var(--dev-bg);color:var(--dev)}.tag-fde{background:var(--fde-bg);color:var(--fde)}.tag-suporte{background:var(--suporte-bg);color:var(--suporte)}
+.vcard-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:6px}
+.vcard-desc{font-size:13px;color:var(--text3);margin-top:10px;line-height:1.5;border-top:1px solid var(--border);padding-top:10px}
+
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad-xl);padding:28px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+.modal h3{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:20px;color:var(--text)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
+.form-control{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rad);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;transition:border-color .2s}
+.form-control:focus{border-color:var(--accent)}
+textarea.form-control{resize:vertical;min-height:80px}
+.form-row{display:flex;gap:12px}.form-row .form-group{flex:1}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.section-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--text)}
+.section-divider{height:1px;background:var(--border);margin:32px 0}
+
+.table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rad-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg3);font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:600;padding:12px 16px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:13px 16px;font-size:14px;color:var(--text);border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg3)}
+.td-actions{display:flex;gap:6px}
+
+.dash-wrap{overflow-x:auto}
+.dash-table{border-collapse:collapse;font-size:12px;min-width:100%}
+.dash-table th,.dash-table td{border:1px solid var(--border);padding:0}
+.dash-table thead th{background:var(--bg3);padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:600;white-space:nowrap;position:sticky;top:0;z-index:2}
+.dash-table .row-header{background:var(--bg3);padding:8px 12px;white-space:nowrap;position:sticky;left:0;z-index:1;min-width:160px}
+.dash-table .cell{width:60px;height:44px;text-align:center;vertical-align:middle}
+.dash-table .cell.allocated{background:rgba(45,212,160,.07)}
+.dot-alloc{width:10px;height:10px;border-radius:50%;display:inline-block}
+.group-header td{background:var(--bg4);padding:6px 12px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;position:sticky;left:0}
+
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty h4{font-size:16px;color:var(--text2);margin-bottom:6px}
+.empty p{font-size:14px}
+
+.confirm-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.person-tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg4);border-radius:20px;padding:3px 10px 3px 3px}
+.person-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+select option{background:var(--bg3);color:var(--text)}
+select optgroup{background:var(--bg2);color:var(--text3);font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="logo">● Alocação</div>
+  <div class="spinner"></div>
+  <div class="msg">Conectando ao banco de dados...</div>
+</div>
+
+<!-- Sync indicator -->
+<div id="sync-indicator">
+  <div class="dot"></div>
+  <span id="sync-msg">Salvo</span>
+</div>
+
+<div class="app" id="app" style="display:none"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, get, update, remove, onValue, push } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ── Firebase config ──────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBBiJTEB9riZNvgpXZ3o2xKKOswt2DuHNs",
+  authDomain: "ferramenta-de-alocacao.firebaseapp.com",
+  databaseURL: "https://ferramenta-de-alocacao-default-rtdb.firebaseio.com",
+  projectId: "ferramenta-de-alocacao",
+  storageBucket: "ferramenta-de-alocacao.firebasestorage.app",
+  messagingSenderId: "927788119372",
+  appId: "1:927788119372:web:9fd07435524c3420b68be9"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+
+// ── Constants ────────────────────────────────────────────────────
+const AREAS    = ['Farmer','Auditoria','DS','Dev','FDE','Suporte'];
+const PRODUTOS = ['Auditoria','Rivio 2.0','Rivio 1.5','Rivio 1.0','Takeover','Glosa Garantida'];
+const ETAPAS   = ['Negociação','Implantação','Adoção','Geração de Valor','Expansão'];
+const FUNCOES  = ['Farmer','Auditoria','DS','Dev','FDE','Suporte'];
+const AREA_ORDER  = ['Farmer','Auditoria','DS','FDE','Dev','Suporte'];
+const ETAPA_ORDER = ['Negociação','Implantação','Adoção','Geração de Valor','Expansão'];
+const AREA_COLORS = {Farmer:'farmer',Auditoria:'auditoria',DS:'ds',Dev:'dev',FDE:'fde',Suporte:'suporte'};
+const ETAPA_TAGS  = {Negociação:'neg',Implantação:'imp',Adoção:'ado','Geração de Valor':'gv',Expansão:'exp'};
+
+// ── Seed data (only written if DB is empty) ──────────────────────
+const SEED_EMPLOYEES = [
+  {id:'e1',nome:'Maria Clara',area:'Farmer'},{id:'e2',nome:'Henrique Azevedo',area:'Farmer'},
+  {id:'e3',nome:'Luís Felipe',area:'Farmer'},{id:'e4',nome:'Pedro Akra',area:'Farmer'},
+  {id:'e5',nome:'Brunna Dopper',area:'Auditoria'},{id:'e6',nome:'Raquel Baptista',area:'Auditoria'},
+  {id:'e7',nome:'Ana Baldovi',area:'Auditoria'},{id:'e8',nome:'Thaís Souza',area:'Auditoria'},
+  {id:'e9',nome:'Larissa Hildebrando',area:'Auditoria'},{id:'e10',nome:'Alessandra Ferreira',area:'Auditoria'},
+  {id:'e11',nome:'Rhavena Gomides',area:'Auditoria'},{id:'e12',nome:'Artur Giovanella',area:'Auditoria'},
+  {id:'e13',nome:'Verônica Rodrighero',area:'DS'},{id:'e14',nome:'João Victor',area:'DS'},
+  {id:'e15',nome:'Luís Lourenço',area:'DS'},{id:'e16',nome:'Bryan Muniz',area:'DS'},
+  {id:'e17',nome:'Elma Diniz',area:'DS'},{id:'e18',nome:'Bruno Mafra',area:'FDE'},
+  {id:'e19',nome:'Lucas Rota',area:'FDE'},{id:'e20',nome:'Amélio Junior',area:'Suporte'},
+  {id:'e21',nome:'William Rocha',area:'Suporte'},{id:'e22',nome:'Jaime Neto',area:'Suporte'},
+  {id:'e23',nome:'Gustavo',area:'Dev'},{id:'e24',nome:'Matheus Trevizan',area:'Dev'},
+];
+const SEED_PROJECTS = [
+  {id:'p1',nome:'Santa Catarina',produto:'Auditoria',etapa:'Negociação',dataInicio:'2026-08-01',descricao:''},
+  {id:'p2',nome:'Moriah',produto:'Takeover',etapa:'Negociação',dataInicio:'2026-08-01',descricao:''},
+  {id:'p3',nome:'Alberto Sabin',produto:'Rivio 2.0',etapa:'Negociação',dataInicio:'2026-06-01',descricao:''},
+  {id:'p4',nome:'Santa Júlia',produto:'Rivio 2.0',etapa:'Negociação',dataInicio:'2026-06-01',descricao:''},
+  {id:'p5',nome:'HCOR',produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p6',nome:"Rede D'or SP",produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p7',nome:"Rede D'or DF",produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p8',nome:'Orion',produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p9',nome:'AC Camargo',produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p10',nome:'AACD',produto:'Auditoria',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p11',nome:'Santa Helena',produto:'Rivio 2.0',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p12',nome:'São Camilo',produto:'Glosa Garantida',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p13',nome:'BH',produto:'Rivio 2.0',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p14',nome:'Santa Rita',produto:'Rivio 2.0',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p15',nome:'Agnus Dei',produto:'Rivio 2.0',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p16',nome:'Incar',produto:'Rivio 2.0',etapa:'Implantação',dataInicio:'',descricao:''},
+  {id:'p17',nome:'Sírio',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p18',nome:'Sabará',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p19',nome:'HAOC',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p20',nome:'FSFX',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p21',nome:'Orizonti',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p22',nome:'São Lucas',produto:'Auditoria',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p23',nome:'Beep',produto:'Rivio 1.5',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p24',nome:'Ang. Carón',produto:'Rivio 1.5',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p25',nome:'Pró Saúde',produto:'Rivio 1.0',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p26',nome:'Rafá',produto:'Rivio 1.0',etapa:'Adoção',dataInicio:'',descricao:''},
+  {id:'p27',nome:'Samuel Libânio',produto:'Takeover',etapa:'Geração de Valor',dataInicio:'',descricao:''},
+  {id:'p28',nome:'Einstein',produto:'Auditoria',etapa:'Expansão',dataInicio:'',descricao:''},
+];
+const SEED_VACANCIES = [
+  {id:'v1',projetoId:'p5',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v2',projetoId:'p6',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v3',projetoId:'p7',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v4',projetoId:'p8',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v5',projetoId:'p9',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v6',projetoId:'p10',funcao:'Farmer',funcionarioId:'e2',descricao:''},
+  {id:'v7',projetoId:'p11',funcao:'Farmer',funcionarioId:'e2',descricao:''},
+  {id:'v8',projetoId:'p12',funcao:'Farmer',funcionarioId:'e3',descricao:''},
+  {id:'v9',projetoId:'p13',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v10',projetoId:'p14',funcao:'Farmer',funcionarioId:'e2',descricao:''},
+  {id:'v11',projetoId:'p15',funcao:'Farmer',funcionarioId:'e2',descricao:''},
+  {id:'v12',projetoId:'p16',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v13',projetoId:'p17',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v14',projetoId:'p18',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v15',projetoId:'p19',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v16',projetoId:'p20',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v17',projetoId:'p21',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v18',projetoId:'p22',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v19',projetoId:'p23',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v20',projetoId:'p24',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v21',projetoId:'p25',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v22',projetoId:'p26',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v23',projetoId:'p27',funcao:'Farmer',funcionarioId:'e4',descricao:''},
+  {id:'v24',projetoId:'p28',funcao:'Farmer',funcionarioId:'e1',descricao:''},
+  {id:'v25',projetoId:'p5',funcao:'Auditoria',funcionarioId:'',descricao:''},
+  {id:'v26',projetoId:'p6',funcao:'Auditoria',funcionarioId:'e8',descricao:''},
+  {id:'v27',projetoId:'p7',funcao:'Auditoria',funcionarioId:'e8',descricao:''},
+  {id:'v28',projetoId:'p9',funcao:'Auditoria',funcionarioId:'e5',descricao:''},
+  {id:'v29',projetoId:'p10',funcao:'Auditoria',funcionarioId:'e5',descricao:''},
+  {id:'v30',projetoId:'p11',funcao:'Auditoria',funcionarioId:'e6',descricao:''},
+  {id:'v31',projetoId:'p12',funcao:'Auditoria',funcionarioId:'e12',descricao:''},
+  {id:'v32',projetoId:'p17',funcao:'Suporte',funcionarioId:'e20',descricao:''},
+  {id:'v33',projetoId:'p18',funcao:'Suporte',funcionarioId:'e20',descricao:''},
+  {id:'v34',projetoId:'p19',funcao:'Suporte',funcionarioId:'e20',descricao:''},
+  {id:'v35',projetoId:'p23',funcao:'Suporte',funcionarioId:'e22',descricao:''},
+  {id:'v36',projetoId:'p24',funcao:'Suporte',funcionarioId:'e22',descricao:''},
+  {id:'v37',projetoId:'p25',funcao:'Suporte',funcionarioId:'e22',descricao:''},
+  {id:'v38',projetoId:'p26',funcao:'Suporte',funcionarioId:'e22',descricao:''},
+  {id:'v39',projetoId:'p27',funcao:'Suporte',funcionarioId:'e22',descricao:''},
+  {id:'v40',projetoId:'p28',funcao:'Suporte',funcionarioId:'e21',descricao:''},
+  {id:'v41',projetoId:'p12',funcao:'DS',funcionarioId:'e15',descricao:''},
+  {id:'v42',projetoId:'p9',funcao:'DS',funcionarioId:'e15',descricao:''},
+  {id:'v43',projetoId:'p10',funcao:'DS',funcionarioId:'e17',descricao:''},
+  {id:'v44',projetoId:'p11',funcao:'DS',funcionarioId:'e14',descricao:''},
+  {id:'v45',projetoId:'p12',funcao:'DS',funcionarioId:'e16',descricao:''},
+  {id:'v46',projetoId:'p13',funcao:'DS',funcionarioId:'e13',descricao:''},
+  {id:'v47',projetoId:'p11',funcao:'DS',funcionarioId:'e18',descricao:''},
+  {id:'v48',projetoId:'p12',funcao:'DS',funcionarioId:'e18',descricao:''},
+];
+
+// ── Helpers ──────────────────────────────────────────────────────
+function uid() { return 'id' + Math.random().toString(36).slice(2); }
+function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function fmt(date) { if(!date) return '-'; const [y,m,d] = date.split('-'); return `${d}/${m}/${y}`; }
+
+function showSync(state, msg) {
+  const el = document.getElementById('sync-indicator');
+  const msgEl = document.getElementById('sync-msg');
+  el.className = 'show ' + state;
+  msgEl.textContent = msg;
+  if (state === 'saved') setTimeout(() => { el.className = ''; }, 2000);
+}
+
+// ── Convert array ↔ Firebase object ─────────────────────────────
+function arrayToObj(arr) {
+  const obj = {};
+  arr.forEach(item => { obj[item.id] = item; });
+  return obj;
+}
+function objToArray(obj) {
+  if (!obj) return [];
+  return Object.values(obj);
+}
+
+// ── App Class ────────────────────────────────────────────────────
+class App {
+  constructor() {
+    this.state = {
+      page: 'home',
+      modal: null,
+      filter: {projeto:'', funcionario:'', status:'', search:''},
+      data: {employees:[], projects:[], vacancies:[]},
+      loaded: false
+    };
+  }
+
+  setState(patch) { Object.assign(this.state, patch); this.render(); }
+
+  getProject(id) { return this.state.data.projects.find(p => p.id === id); }
+  getEmployee(id) { return this.state.data.employees.find(e => e.id === id); }
+
+  // ── Firebase ops ──────────────────────────────────────────────
+  async fbSet(path, value) {
+    showSync('saving', 'Salvando...');
+    try {
+      await set(ref(db, path), value);
+      showSync('saved', 'Salvo');
+    } catch(e) {
+      showSync('error', 'Erro ao salvar');
+      console.error(e);
+    }
+  }
+
+  async fbRemove(path) {
+    showSync('saving', 'Salvando...');
+    try {
+      await remove(ref(db, path));
+      showSync('saved', 'Salvo');
+    } catch(e) {
+      showSync('error', 'Erro ao salvar');
+    }
+  }
+
+  async saveEmployee(editId) {
+    const nome = document.getElementById('f-nome')?.value?.trim();
+    const area = document.getElementById('f-area')?.value;
+    if (!nome) return alert('Preencha o nome do funcionário.');
+    const id = editId || uid();
+    await this.fbSet(`employees/${id}`, {id, nome, area});
+    this.setState({modal: null});
+  }
+
+  async saveProject(editId) {
+    const nome = document.getElementById('f-nome')?.value?.trim();
+    const produto = document.getElementById('f-produto')?.value;
+    const etapa = document.getElementById('f-etapa')?.value;
+    const dataInicio = document.getElementById('f-data')?.value;
+    const descricao = document.getElementById('f-desc')?.value?.trim();
+    if (!nome) return alert('Preencha o nome do projeto.');
+    const id = editId || uid();
+    await this.fbSet(`projects/${id}`, {id, nome, produto, etapa, dataInicio, descricao});
+    this.setState({modal: null});
+  }
+
+  async saveVacancy(editId) {
+    const projetoId = document.getElementById('f-projeto')?.value;
+    const funcao = document.getElementById('f-funcao')?.value;
+    const funcionarioId = document.getElementById('f-funcionario')?.value || '';
+    const descricao = document.getElementById('f-desc')?.value?.trim();
+    if (!projetoId) return alert('Selecione um projeto.');
+    const id = editId || uid();
+    await this.fbSet(`vacancies/${id}`, {id, projetoId, funcao, funcionarioId, descricao});
+    this.setState({modal: null});
+  }
+
+  async handleDelete(target, id) {
+    if (target === 'employee') {
+      await this.fbRemove(`employees/${id}`);
+      // Clear employee from vacancies
+      const updates = {};
+      this.state.data.vacancies.forEach(v => {
+        if (v.funcionarioId === id) updates[`vacancies/${v.id}/funcionarioId`] = '';
+      });
+      if (Object.keys(updates).length > 0) await update(ref(db), updates);
+    } else if (target === 'project') {
+      await this.fbRemove(`projects/${id}`);
+      // Remove vacancies for this project
+      const removes = this.state.data.vacancies.filter(v => v.projetoId === id);
+      for (const v of removes) await remove(ref(db, `vacancies/${v.id}`));
+    } else if (target === 'vacancy') {
+      await this.fbRemove(`vacancies/${id}`);
+    }
+    this.setState({modal: null});
+  }
+
+  // ── Render ────────────────────────────────────────────────────
+  render() {
+    const {page} = this.state;
+    document.getElementById('app').innerHTML =
+      this.renderNav() +
+      `<main>${page==='home' ? this.renderHome() : page==='cadastro' ? this.renderCadastro() : this.renderDashboard()}</main>` +
+      (this.state.modal ? this.renderModal() : '');
+    this.bindEvents();
+  }
+
+  renderNav() {
+    const {page} = this.state;
+    return `<nav>
+      <span class="nav-logo">● Alocação</span>
+      <button class="nav-btn ${page==='home'?'active':''}" data-nav="home">Vagas</button>
+      <button class="nav-btn ${page==='cadastro'?'active':''}" data-nav="cadastro">Cadastros</button>
+      <button class="nav-btn ${page==='dashboard'?'active':''}" data-nav="dashboard">Dashboard</button>
+      <div class="nav-right"><div class="live-dot"></div>Tempo real</div>
+    </nav>`;
+  }
+
+  renderHome() {
+    const {data, filter} = this.state;
+    let vagas = [...data.vacancies];
+    if (filter.projeto) vagas = vagas.filter(v => v.projetoId === filter.projeto);
+    if (filter.funcionario) vagas = vagas.filter(v => v.funcionarioId === filter.funcionario);
+    if (filter.status) vagas = vagas.filter(v => filter.status==='Aberto' ? !v.funcionarioId : !!v.funcionarioId);
+    if (filter.search) {
+      const s = filter.search.toLowerCase();
+      vagas = vagas.filter(v => {
+        const p = this.getProject(v.projetoId);
+        const e = this.getEmployee(v.funcionarioId);
+        return (p && p.nome.toLowerCase().includes(s)) ||
+               (e && e.nome.toLowerCase().includes(s)) ||
+               v.funcao.toLowerCase().includes(s) ||
+               (v.descricao && v.descricao.toLowerCase().includes(s));
+      });
+    }
+    const total = data.vacancies.length;
+    const open = data.vacancies.filter(v => !v.funcionarioId).length;
+    const closed = data.vacancies.filter(v => !!v.funcionarioId).length;
+
+    return `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Total de Vagas</div><div class="stat-value all">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">Vagas Abertas</div><div class="stat-value open">${open}</div></div>
+      <div class="stat-card"><div class="stat-label">Vagas Fechadas</div><div class="stat-value closed">${closed}</div></div>
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" data-action="new-employee">+ Funcionário</button>
+      <button class="btn btn-primary" data-action="new-project">+ Projeto</button>
+      <button class="btn btn-primary" data-action="new-vacancy">+ Vaga</button>
+    </div>
+    <div class="filters">
+      <span class="filter-label">Filtrar:</span>
+      <input class="filter-input" placeholder="Buscar..." value="${filter.search||''}" data-filter="search">
+      <select class="filter-select" data-filter="projeto">
+        <option value="">Todos os projetos</option>
+        ${data.projects.map(p=>`<option value="${p.id}" ${filter.projeto===p.id?'selected':''}>${p.nome}</option>`).join('')}
+      </select>
+      <select class="filter-select" data-filter="funcionario">
+        <option value="">Todos os funcionários</option>
+        ${data.employees.map(e=>`<option value="${e.id}" ${filter.funcionario===e.id?'selected':''}>${e.nome}</option>`).join('')}
+      </select>
+      <select class="filter-select" data-filter="status">
+        <option value="">Todos os status</option>
+        <option value="Aberto" ${filter.status==='Aberto'?'selected':''}>Aberto</option>
+        <option value="Fechado" ${filter.status==='Fechado'?'selected':''}>Fechado</option>
+      </select>
+    </div>
+    ${vagas.length===0 ? `<div class="empty"><div class="empty-icon">📋</div><h4>Nenhuma vaga encontrada</h4><p>Ajuste os filtros ou cadastre uma nova vaga.</p></div>` : ''}
+    <div class="cards-grid">${vagas.map(v => this.renderVacancyCard(v)).join('')}</div>`;
+  }
+
+  renderVacancyCard(v) {
+    const p = this.getProject(v.projetoId);
+    const e = v.funcionarioId ? this.getEmployee(v.funcionarioId) : null;
+    const isOpen = !v.funcionarioId;
+    const etag = p ? (ETAPA_TAGS[p.etapa] || 'neg') : 'neg';
+    const ac = AREA_COLORS[v.funcao] || 'ds';
+    return `<div class="vcard ${isOpen?'open':'closed'}">
+      <div class="vcard-header">
+        <div class="vcard-project">${p ? p.nome : '—'}</div>
+        <span class="badge ${isOpen?'badge-open':'badge-closed'}">${isOpen?'Aberto':'Fechado'}</span>
+      </div>
+      <div class="vcard-meta">
+        ${p ? `<span class="tag tag-${etag}">${p.etapa}</span>` : ''}
+        <span class="tag tag-${ac}">${v.funcao}</span>
+        ${p ? `<span style="font-size:12px;color:var(--text3)">${p.produto}</span>` : ''}
+      </div>
+      ${e ? `<div class="vcard-row"><div class="person-tag">
+        <div class="person-avatar" style="background:var(--${ac}-bg);color:var(--${ac})">${initials(e.nome)}</div>
+        <span style="font-size:13px;font-weight:500">${e.nome}</span>
+      </div></div>` : `<div class="vcard-row" style="color:var(--warning)">Vaga em aberto</div>`}
+      ${v.descricao ? `<div class="vcard-desc">${v.descricao}</div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-edit btn-sm" data-action="edit-vacancy" data-id="${v.id}">Editar</button>
+        <button class="btn btn-danger btn-sm" data-action="delete-vacancy" data-id="${v.id}">Excluir</button>
+      </div>
+    </div>`;
+  }
+
+  renderCadastro() {
+    const {data} = this.state;
+    const se = [...data.employees].sort((a,b) => a.nome.localeCompare(b.nome));
+    const sp = [...data.projects].sort((a,b) => a.nome.localeCompare(b.nome));
+    return `
+    <div class="section-header">
+      <span class="section-title">Funcionários</span>
+      <button class="btn btn-primary" data-action="new-employee">+ Novo Funcionário</button>
+    </div>
+    <div class="table-wrap" style="margin-bottom:40px">
+      <table>
+        <thead><tr><th>Nome</th><th>Área</th><th>Vagas</th><th>Ações</th></tr></thead>
+        <tbody>
+        ${se.length===0 ? `<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:24px">Nenhum funcionário cadastrado</td></tr>` : ''}
+        ${se.map(e => {
+          const ac = AREA_COLORS[e.area] || 'ds';
+          const vc = data.vacancies.filter(v => v.funcionarioId === e.id).length;
+          return `<tr>
+            <td style="font-weight:500">${e.nome}</td>
+            <td><span class="tag tag-${ac}">${e.area}</span></td>
+            <td><span style="color:var(--text2)">${vc} vaga${vc!==1?'s':''}</span></td>
+            <td class="td-actions">
+              <button class="btn btn-edit btn-sm" data-action="edit-employee" data-id="${e.id}">Editar</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-employee" data-id="${e.id}">Excluir</button>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="section-divider"></div>
+    <div class="section-header">
+      <span class="section-title">Projetos</span>
+      <button class="btn btn-primary" data-action="new-project">+ Novo Projeto</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nome</th><th>Produto</th><th>Etapa</th><th>Início</th><th>Descrição</th><th>Ações</th></tr></thead>
+        <tbody>
+        ${sp.length===0 ? `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Nenhum projeto cadastrado</td></tr>` : ''}
+        ${sp.map(p => {
+          const etag = ETAPA_TAGS[p.etapa] || 'neg';
+          return `<tr>
+            <td style="font-weight:500">${p.nome}</td>
+            <td style="color:var(--text2)">${p.produto}</td>
+            <td><span class="tag tag-${etag}">${p.etapa}</span></td>
+            <td style="color:var(--text2)">${fmt(p.dataInicio)}</td>
+            <td style="color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.descricao||''}">${p.descricao||'—'}</td>
+            <td class="td-actions">
+              <button class="btn btn-edit btn-sm" data-action="edit-project" data-id="${p.id}">Editar</button>
+              <button class="btn btn-danger btn-sm" data-action="delete-project" data-id="${p.id}">Excluir</button>
+            </td>
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+
+  renderDashboard() {
+    const {data} = this.state;
+    const employees = [...data.employees].sort((a,b) => {
+      const ai = AREA_ORDER.indexOf(a.area), bi = AREA_ORDER.indexOf(b.area);
+      return ai !== bi ? ai-bi : a.nome.localeCompare(b.nome);
+    });
+    const projects = [...data.projects].sort((a,b) => {
+      const ai = ETAPA_ORDER.indexOf(a.etapa), bi = ETAPA_ORDER.indexOf(b.etapa);
+      return ai !== bi ? ai-bi : a.nome.localeCompare(b.nome);
+    });
+    const allocMap = {};
+    data.vacancies.forEach(v => { if(v.funcionarioId) allocMap[v.funcionarioId+'|'+v.projetoId] = v; });
+
+    let currentArea = null, rows = '';
+    employees.forEach(e => {
+      if (e.area !== currentArea) {
+        currentArea = e.area;
+        const ac = AREA_COLORS[e.area] || 'ds';
+        rows += `<tr class="group-header"><td colspan="${projects.length+1}" style="color:var(--${ac})">▸ ${e.area}</td></tr>`;
+      }
+      const cells = projects.map(p => {
+        const key = e.id+'|'+p.id;
+        const alloc = allocMap[key];
+        if (alloc) {
+          const fc = AREA_COLORS[alloc.funcao] || 'ds';
+          return `<td class="cell allocated" title="${e.nome} → ${p.nome} (${alloc.funcao})"><span class="dot-alloc" style="background:var(--${fc})"></span></td>`;
+        }
+        return `<td class="cell"></td>`;
+      }).join('');
+      rows += `<tr><td class="row-header"><div style="font-weight:500;font-size:13px">${e.nome}</div></td>${cells}</tr>`;
+    });
+
+    let currentEtapa = null;
+    const colHeaders = projects.map(p => {
+      let prefix = '';
+      if (p.etapa !== currentEtapa) {
+        currentEtapa = p.etapa;
+        prefix = `<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:3px">${p.etapa}</div>`;
+      }
+      return `<th style="max-width:100px"><div style="font-size:11px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px" title="${p.nome}">${prefix}${p.nome}</div></th>`;
+    }).join('');
+
+    const totalAlloc = Object.keys(allocMap).length;
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <span class="section-title">Matriz de Alocação</span>
+      <span style="font-size:13px;color:var(--text2)">${employees.length} pessoas · ${projects.length} projetos · ${totalAlloc} alocações</span>
+    </div>
+    <div style="display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap">
+      ${AREA_ORDER.map(a => {
+        const ac = AREA_COLORS[a];
+        return `<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--${ac});display:inline-block"></span><span style="font-size:13px;color:var(--text2)">${a}</span></div>`;
+      }).join('')}
+      <div style="margin-left:auto;font-size:13px;color:var(--text2)">● = alocado</div>
+    </div>
+    ${employees.length===0||projects.length===0 ? `<div class="empty"><div class="empty-icon">📊</div><h4>Dados insuficientes</h4><p>Cadastre funcionários e projetos para ver a matriz.</p></div>` : `
+    <div class="dash-wrap table-wrap">
+      <table class="dash-table">
+        <thead><tr>
+          <th style="min-width:160px;position:sticky;left:0;z-index:3;background:var(--bg3)">Funcionário</th>
+          ${colHeaders}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`}`;
+  }
+
+  renderModal() {
+    const {modal} = this.state;
+    if (!modal) return '';
+    const {type, data:d={}} = modal;
+
+    if (type === 'delete-confirm') {
+      return `<div class="modal-backdrop">
+        <div class="modal" style="max-width:380px">
+          <h3>Confirmar exclusão</h3>
+          <p style="color:var(--text2);font-size:14px;line-height:1.5">${d.message||'Tem certeza?'}</p>
+          <div class="confirm-btns">
+            <button class="btn btn-secondary" data-action="close-modal">Cancelar</button>
+            <button class="btn btn-danger" data-action="confirm-delete" data-target="${d.target}" data-id="${d.id}">Excluir</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const {data:appData} = this.state;
+    const isEdit = !!d.id;
+
+    if (type === 'employee') {
+      return `<div class="modal-backdrop"><div class="modal">
+        <h3>${isEdit?'Editar':'Novo'} Funcionário</h3>
+        <div class="form-group"><label class="form-label">Nome</label>
+          <input class="form-control" id="f-nome" value="${d.nome||''}" placeholder="Nome completo"></div>
+        <div class="form-group"><label class="form-label">Área</label>
+          <select class="form-control" id="f-area">
+            ${AREAS.map(a=>`<option value="${a}" ${(d.area||'')==a?'selected':''}>${a}</option>`).join('')}
+          </select></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-action="close-modal">Cancelar</button>
+          <button class="btn btn-primary" data-action="save-employee" data-id="${d.id||''}">Salvar</button>
+        </div>
+      </div></div>`;
+    }
+
+    if (type === 'project') {
+      return `<div class="modal-backdrop"><div class="modal">
+        <h3>${isEdit?'Editar':'Novo'} Projeto</h3>
+        <div class="form-group"><label class="form-label">Nome do cliente / projeto</label>
+          <input class="form-control" id="f-nome" value="${d.nome||''}" placeholder="Nome"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Produto</label>
+            <select class="form-control" id="f-produto">
+              ${PRODUTOS.map(p=>`<option value="${p}" ${(d.produto||'')==p?'selected':''}>${p}</option>`).join('')}
+            </select></div>
+          <div class="form-group"><label class="form-label">Etapa</label>
+            <select class="form-control" id="f-etapa">
+              ${ETAPAS.map(e=>`<option value="${e}" ${(d.etapa||'')==e?'selected':''}>${e}</option>`).join('')}
+            </select></div>
+        </div>
+        <div class="form-group"><label class="form-label">Data de início</label>
+          <input class="form-control" id="f-data" type="date" value="${d.dataInicio||''}"></div>
+        <div class="form-group"><label class="form-label">Descrição</label>
+          <textarea class="form-control" id="f-desc" placeholder="Descreva o projeto...">${d.descricao||''}</textarea></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-action="close-modal">Cancelar</button>
+          <button class="btn btn-primary" data-action="save-project" data-id="${d.id||''}">Salvar</button>
+        </div>
+      </div></div>`;
+    }
+
+    if (type === 'vacancy') {
+      const sf = d.funcao || FUNCOES[0];
+      const fe = appData.employees.filter(e => e.area === sf);
+      const oe = appData.employees.filter(e => e.area !== sf);
+      return `<div class="modal-backdrop"><div class="modal">
+        <h3>${isEdit?'Editar':'Nova'} Vaga</h3>
+        <div class="form-group"><label class="form-label">Projeto</label>
+          <select class="form-control" id="f-projeto">
+            <option value="">Selecione um projeto...</option>
+            ${appData.projects.map(p=>`<option value="${p.id}" ${(d.projetoId||'')==p.id?'selected':''}>${p.nome}</option>`).join('')}
+          </select></div>
+        <div class="form-group"><label class="form-label">Função</label>
+          <select class="form-control" id="f-funcao" data-action="change-funcao">
+            ${FUNCOES.map(f=>`<option value="${f}" ${sf==f?'selected':''}>${f}</option>`).join('')}
+          </select></div>
+        <div class="form-group"><label class="form-label">Funcionário <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+          <select class="form-control" id="f-funcionario">
+            <option value="">Nenhum (vaga aberta)</option>
+            ${fe.length>0 ? `<optgroup label="── Mesma área (${sf}) ──">${fe.map(e=>`<option value="${e.id}" ${(d.funcionarioId||'')==e.id?'selected':''}>${e.nome}</option>`).join('')}</optgroup>` : ''}
+            ${oe.length>0 ? `<optgroup label="── Outras áreas ──">${oe.map(e=>`<option value="${e.id}" ${(d.funcionarioId||'')==e.id?'selected':''}>${e.nome} (${e.area})</option>`).join('')}</optgroup>` : ''}
+          </select></div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <div style="font-size:13px;color:var(--text2);padding:8px 0;line-height:1.4">
+            Automático: <strong style="color:var(--warning)">Aberto</strong> sem funcionário · <strong style="color:var(--success)">Fechado</strong> com funcionário
+          </div></div>
+        <div class="form-group"><label class="form-label">Descrição</label>
+          <textarea class="form-control" id="f-desc" placeholder="Descreva a vaga...">${d.descricao||''}</textarea></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-action="close-modal">Cancelar</button>
+          <button class="btn btn-primary" data-action="save-vacancy" data-id="${d.id||''}">Salvar</button>
+        </div>
+      </div></div>`;
+    }
+    return '';
+  }
+
+  bindEvents() {
+    document.querySelectorAll('[data-nav]').forEach(el => {
+      el.addEventListener('click', () => this.setState({page: el.dataset.nav}));
+    });
+    document.querySelectorAll('[data-filter]').forEach(el => {
+      const fn = () => { const f = {...this.state.filter}; f[el.dataset.filter] = el.value; this.setState({filter:f}); };
+      el.addEventListener('input', fn);
+      el.addEventListener('change', fn);
+    });
+    document.querySelectorAll('[data-action]').forEach(el => {
+      el.addEventListener('click', () => this.handleAction(el));
+    });
+    document.querySelectorAll('.modal-backdrop').forEach(el => {
+      el.addEventListener('click', e => { if(e.target === el) this.setState({modal:null}); });
+    });
+  }
+
+  handleAction(el) {
+    const a = el.dataset.action, id = el.dataset.id || '';
+    if (a === 'new-employee') this.setState({modal:{type:'employee',data:{}}});
+    else if (a === 'new-project') this.setState({modal:{type:'project',data:{}}});
+    else if (a === 'new-vacancy') this.setState({modal:{type:'vacancy',data:{}}});
+    else if (a === 'edit-employee') { const e = this.state.data.employees.find(x=>x.id===id); if(e) this.setState({modal:{type:'employee',data:{...e}}}); }
+    else if (a === 'edit-project') { const p = this.state.data.projects.find(x=>x.id===id); if(p) this.setState({modal:{type:'project',data:{...p}}}); }
+    else if (a === 'edit-vacancy') { const v = this.state.data.vacancies.find(x=>x.id===id); if(v) this.setState({modal:{type:'vacancy',data:{...v}}}); }
+    else if (a === 'delete-employee') { const e = this.state.data.employees.find(x=>x.id===id); this.setState({modal:{type:'delete-confirm',data:{target:'employee',id,message:`Excluir funcionário "${e?.nome}"? Vagas vinculadas ficarão abertas.`}}}); }
+    else if (a === 'delete-project') { const p = this.state.data.projects.find(x=>x.id===id); this.setState({modal:{type:'delete-confirm',data:{target:'project',id,message:`Excluir projeto "${p?.nome}"? Vagas vinculadas também serão removidas.`}}}); }
+    else if (a === 'delete-vacancy') this.setState({modal:{type:'delete-confirm',data:{target:'vacancy',id,message:'Excluir esta vaga? A ação não pode ser desfeita.'}}});
+    else if (a === 'close-modal') this.setState({modal:null});
+    else if (a === 'confirm-delete') this.handleDelete(el.dataset.target, el.dataset.id);
+    else if (a === 'save-employee') this.saveEmployee(id);
+    else if (a === 'save-project') this.saveProject(id);
+    else if (a === 'save-vacancy') this.saveVacancy(id);
+    else if (a === 'change-funcao') {
+      const funcao = document.getElementById('f-funcao')?.value;
+      const funcionarioId = document.getElementById('f-funcionario')?.value || '';
+      const projetoId = document.getElementById('f-projeto')?.value || '';
+      const desc = document.getElementById('f-desc')?.value || '';
+      this.setState({modal:{...this.state.modal, data:{...this.state.modal.data, funcao, funcionarioId, projetoId, descricao:desc}}});
+    }
+  }
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────
+async function bootstrap() {
+  const appEl = document.getElementById('app');
+  const loadEl = document.getElementById('loading-screen');
+
+  // Check if DB has data, seed if empty
+  const snap = await get(ref(db, '/'));
+  if (!snap.exists() || !snap.val().employees) {
+    document.querySelector('#loading-screen .msg').textContent = 'Carregando dados iniciais...';
+    const seedData = {
+      employees: arrayToObj(SEED_EMPLOYEES),
+      projects:  arrayToObj(SEED_PROJECTS),
+      vacancies: arrayToObj(SEED_VACANCIES),
+    };
+    await set(ref(db, '/'), seedData);
+  }
+
+  const app = new App();
+
+  // Listen to realtime changes
+  onValue(ref(db, 'employees'), snap => {
+    app.state.data.employees = objToArray(snap.val());
+    if (app.state.loaded) app.render();
+  });
+  onValue(ref(db, 'projects'), snap => {
+    app.state.data.projects = objToArray(snap.val());
+    if (app.state.loaded) app.render();
+  });
+  onValue(ref(db, 'vacancies'), snap => {
+    app.state.data.vacancies = objToArray(snap.val());
+    if (app.state.loaded) app.render();
+  });
+
+  // Wait a tick for all 3 listeners to fire
+  await new Promise(r => setTimeout(r, 800));
+  app.state.loaded = true;
+
+  loadEl.style.display = 'none';
+  appEl.style.display = 'flex';
+  app.render();
+}
+
+bootstrap().catch(err => {
+  document.querySelector('#loading-screen .msg').textContent = 'Erro ao conectar: ' + err.message;
+  document.querySelector('#loading-screen .spinner').style.display = 'none';
+});
+</script>
+</body>
+</html>
