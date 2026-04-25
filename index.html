@@ -327,8 +327,49 @@ class App {
   }
 
   renderHomeInPlace() {
-    const main = document.querySelector('main');
-    if (main) { main.innerHTML = this.renderHome(); this.bindEvents(); }
+    // Only update stats and cards — never touch the filter inputs (preserves focus)
+    const {data, filter} = this.state;
+    let vagas = [...data.vacancies];
+    if (filter.projeto) vagas = vagas.filter(v => v.projetoId === filter.projeto);
+    if (filter.funcionario) vagas = vagas.filter(v => v.funcionarioId === filter.funcionario);
+    if (filter.status) vagas = vagas.filter(v => filter.status==='Aberto' ? !v.funcionarioId : !!v.funcionarioId);
+    if (filter.search) {
+      const s = filter.search.toLowerCase();
+      vagas = vagas.filter(v => {
+        const p = this.getProject(v.projetoId);
+        const e = this.getEmployee(v.funcionarioId);
+        return (p && p.nome.toLowerCase().includes(s)) ||
+               (e && e.nome.toLowerCase().includes(s)) ||
+               v.funcao.toLowerCase().includes(s) ||
+               (v.descricao && v.descricao.toLowerCase().includes(s));
+      });
+    }
+    const total = data.vacancies.length;
+    const open  = data.vacancies.filter(v => !v.funcionarioId).length;
+    const closed = data.vacancies.filter(v => !!v.funcionarioId).length;
+
+    // Update stats
+    const statsEl = document.getElementById('stats-row');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="stat-card"><div class="stat-label">Total de Vagas</div><div class="stat-value all">${total}</div></div>
+        <div class="stat-card"><div class="stat-label">Vagas Abertas</div><div class="stat-value open">${open}</div></div>
+        <div class="stat-card"><div class="stat-label">Vagas Fechadas</div><div class="stat-value closed">${closed}</div></div>`;
+    }
+
+    // Update cards
+    const cardsEl = document.getElementById('cards-grid');
+    if (cardsEl) {
+      if (vagas.length === 0) {
+        cardsEl.outerHTML = '<div class="empty"><div class="empty-icon">📋</div><h4>Nenhuma vaga encontrada</h4><p>Ajuste os filtros ou cadastre uma nova vaga.</p></div>';
+      } else {
+        cardsEl.innerHTML = vagas.map(v => this.renderVacancyCard(v)).join('');
+        // Re-bind edit/delete buttons inside cards
+        cardsEl.querySelectorAll('[data-action]').forEach(el => {
+          el.addEventListener('click', () => this.handleAction(el));
+        });
+      }
+    }
   }
 
   getProject(id) { return this.state.data.projects.find(p => p.id === id); }
@@ -451,7 +492,7 @@ class App {
     const closed = data.vacancies.filter(v => !!v.funcionarioId).length;
 
     return `
-    <div class="stats-row">
+    <div class="stats-row" id="stats-row">
       <div class="stat-card"><div class="stat-label">Total de Vagas</div><div class="stat-value all">${total}</div></div>
       <div class="stat-card"><div class="stat-label">Vagas Abertas</div><div class="stat-value open">${open}</div></div>
       <div class="stat-card"><div class="stat-label">Vagas Fechadas</div><div class="stat-value closed">${closed}</div></div>
@@ -479,7 +520,7 @@ class App {
       </select>
     </div>
     ${vagas.length===0 ? `<div class="empty"><div class="empty-icon">📋</div><h4>Nenhuma vaga encontrada</h4><p>Ajuste os filtros ou cadastre uma nova vaga.</p></div>` : ''}
-    <div class="cards-grid">${vagas.map(v => this.renderVacancyCard(v)).join('')}</div>`;
+    <div class="cards-grid" id="cards-grid">${vagas.map(v => this.renderVacancyCard(v)).join('')}</div>`;
   }
 
   renderVacancyCard(v) {
