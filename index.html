@@ -321,6 +321,16 @@ class App {
 
   setState(patch) { Object.assign(this.state, patch); this.render(); }
 
+  setFilter(key, value) {
+    this.state.filter[key] = value;
+    if (this.state.page === 'home') { this.renderHomeInPlace(); } else { this.render(); }
+  }
+
+  renderHomeInPlace() {
+    const main = document.querySelector('main');
+    if (main) { main.innerHTML = this.renderHome(); this.bindEvents(); }
+  }
+
   getProject(id) { return this.state.data.projects.find(p => p.id === id); }
   getEmployee(id) { return this.state.data.employees.find(e => e.id === id); }
 
@@ -729,13 +739,19 @@ class App {
     document.querySelectorAll('[data-nav]').forEach(el => {
       el.addEventListener('click', () => this.setState({page: el.dataset.nav}));
     });
+    // Fix (ii): setFilter atualiza filtro sem re-renderizar tudo, mantendo o foco no input
     document.querySelectorAll('[data-filter]').forEach(el => {
-      const fn = () => { const f = {...this.state.filter}; f[el.dataset.filter] = el.value; this.setState({filter:f}); };
+      const fn = () => this.setFilter(el.dataset.filter, el.value);
       el.addEventListener('input', fn);
       el.addEventListener('change', fn);
     });
+    // Fix (i): selects usam 'change', botoes usam 'click'
     document.querySelectorAll('[data-action]').forEach(el => {
-      el.addEventListener('click', () => this.handleAction(el));
+      if (el.tagName === 'SELECT') {
+        el.addEventListener('change', () => this.handleAction(el));
+      } else {
+        el.addEventListener('click', () => this.handleAction(el));
+      }
     });
     document.querySelectorAll('.modal-backdrop').forEach(el => {
       el.addEventListener('click', e => { if(e.target === el) this.setState({modal:null}); });
@@ -763,7 +779,18 @@ class App {
       const funcionarioId = document.getElementById('f-funcionario')?.value || '';
       const projetoId = document.getElementById('f-projeto')?.value || '';
       const desc = document.getElementById('f-desc')?.value || '';
-      this.setState({modal:{...this.state.modal, data:{...this.state.modal.data, funcao, funcionarioId, projetoId, descricao:desc}}});
+      // Atualiza só a lista de funcionários sem re-renderizar o modal inteiro
+      this.state.modal.data = {...this.state.modal.data, funcao, funcionarioId, projetoId, descricao: desc};
+      const appData = this.state.data;
+      const fe = appData.employees.filter(e => e.area === funcao);
+      const oe = appData.employees.filter(e => e.area !== funcao);
+      const sel = document.getElementById('f-funcionario');
+      if (sel) {
+        sel.innerHTML = '<option value="">Nenhum (vaga aberta)</option>' +
+          (fe.length > 0 ? '<optgroup label="── Mesma área (' + funcao + ') ──">' + fe.map(e => '<option value="' + e.id + '">' + e.nome + '</option>').join('') + '</optgroup>' : '') +
+          (oe.length > 0 ? '<optgroup label="── Outras áreas ──">' + oe.map(e => '<option value="' + e.id + '">' + e.nome + ' (' + e.area + ')</option>').join('') + '</optgroup>' : '');
+        sel.value = '';
+      }
     }
   }
 }
