@@ -7,10 +7,26 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;background:#f4f5f7;color:#111}
 #app{display:flex;height:100vh;overflow:hidden}
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at top left,#eef2ff,#f8fafc 42%,#f4f5f7)}
+.login-card{width:100%;max-width:420px;background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:34px;box-shadow:0 24px 70px rgba(15,23,42,.12);text-align:center}
+.login-logo{width:54px;height:54px;border-radius:16px;margin:0 auto 18px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:18px}
+.login-title{font-size:24px;font-weight:800;letter-spacing:-.03em;color:#111;margin-bottom:8px}
+.login-sub{font-size:14px;color:#6b7280;line-height:1.45;margin-bottom:24px}
+.login-google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 18px;background:#111;color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:background .13s}
+.login-google-btn:hover{background:#333}
+.login-error{display:none;margin-top:14px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px;font-size:12px;text-align:left}
+.auth-user{padding:12px 14px;border-top:1px solid #1c1c1e;display:none;gap:8px;align-items:center;color:#e5e7eb}
+.auth-user img{width:28px;height:28px;border-radius:50%;flex-shrink:0}
+.auth-user-meta{min-width:0;flex:1}
+.auth-user-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auth-user-email{font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auth-logout{background:transparent;border:1px solid #374151;color:#d1d5db;border-radius:7px;padding:5px 8px;font-size:11px;cursor:pointer;font-family:inherit}
+.auth-logout:hover{background:#1c1c1e;color:#fff}
 /* SIDEBAR */
 #sidebar{width:220px;background:#0f0f10;display:flex;flex-direction:column;flex-shrink:0}
 .sb-brand{padding:20px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1c1c1e}
@@ -179,7 +195,19 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<div id="app">
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">R</div>
+    <h1 class="login-title">Gestão de Projetos</h1>
+    <p class="login-sub">Entre com sua conta Google para acessar a central de projetos da Rivio.</p>
+    <button class="login-google-btn" onclick="loginWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.35 11.1H12v2.9h5.35c-.25 1.55-1.62 4.55-5.35 4.55A6.55 6.55 0 0 1 12 5.45c1.85 0 3.1.8 3.8 1.5l2.6-2.5C16.75 2.9 14.58 2 12 2a10 10 0 1 0 0 20c5.78 0 9.6-4.05 9.6-9.75 0-.65-.08-1.15-.25-1.15Z"/></svg>
+      Entrar com Google
+    </button>
+    <div id="login-error" class="login-error"></div>
+  </div>
+</div>
+<div id="app" style="display:none">
   <div id="sidebar">
     <div class="sb-brand">
       <div class="sb-logo" style="background:none;padding:0;overflow:hidden"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" style="width:32px;height:32px;object-fit:cover;border-radius:8px;display:block"/></div>
@@ -210,6 +238,14 @@ tr:last-child td{border-bottom:none}
         Resumo Equipes
       </button>
       <div id="sb-projects-list" style="margin-top:8px;border-top:1px solid #1c1c1e;padding-top:8px"></div>
+    </div>
+    <div class="auth-user" id="auth-user">
+      <img id="auth-user-photo" src="" alt="Foto do usuário"/>
+      <div class="auth-user-meta">
+        <div class="auth-user-name" id="auth-user-name"></div>
+        <div class="auth-user-email" id="auth-user-email"></div>
+      </div>
+      <button class="auth-logout" onclick="logoutGoogle()">Sair</button>
     </div>
     <div class="sb-footer" id="sb-footer" style="display:none">
       <div class="sb-footer-label">Progresso</div>
@@ -1921,6 +1957,53 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+let _firebaseSyncStarted = false;
+
+function loginWithGoogle(){
+  const err = document.getElementById("login-error");
+  if(err){ err.style.display="none"; err.textContent=""; }
+  auth.signInWithPopup(googleProvider).catch(error => {
+    console.error("Erro no login Google:", error);
+    if(err){
+      err.style.display="block";
+      err.textContent = error.code === "auth/unauthorized-domain"
+        ? "Domínio não autorizado no Firebase. Adicione este domínio em Authentication > Settings > Authorized domains."
+        : "Não foi possível fazer login com Google. Tente novamente.";
+    }
+  });
+}
+
+function logoutGoogle(){
+  auth.signOut();
+}
+
+function showAppForUser(user){
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  const box = document.getElementById("auth-user");
+  box.style.display = "flex";
+  document.getElementById("auth-user-name").textContent = user.displayName || "Usuário";
+  document.getElementById("auth-user-email").textContent = user.email || "";
+  document.getElementById("auth-user-photo").src = user.photoURL || "";
+}
+
+function showLoginScreen(){
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  const box = document.getElementById("auth-user");
+  if(box) box.style.display = "none";
+}
+
+auth.onAuthStateChanged(user => {
+  if(user){
+    showAppForUser(user);
+    startFirebaseSync();
+  } else {
+    showLoginScreen();
+  }
+});
 
 // ── Serialization helpers ──────────────────────────────────────────────────────
 // Projects use Set for expandedMacros/expandedGantt — must convert for Firebase
@@ -2058,6 +2141,10 @@ function showSyncToast(msg, color) {
 let _fbReady = 0; // count nodes loaded; render once all 4 arrive on first load
 let _fbFirstLoad = true;
 
+function startFirebaseSync(){
+  if(_firebaseSyncStarted) return;
+  _firebaseSyncStarted = true;
+
 function _checkFirstLoad() {
   _fbReady++;
   if (_fbReady >= 4 && _fbFirstLoad) {
@@ -2103,6 +2190,8 @@ db.ref(".info/connected").on("value", snap => {
     showSyncToast("🔴 Sem conexão — alterações serão sincronizadas ao reconectar", "#ef4444");
   }
 });
+}
+
 
 // ── INIT — render placeholder while Firebase loads ────────────────────────────
 document.getElementById("content").innerHTML = `
