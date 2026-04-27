@@ -4,10 +4,33 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Gestão de Projetos</title>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, update, remove, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAfIUpGDAQrpXiU1RQJbbngyJp5RZx91T8",
+    authDomain: "rivio-projetos.firebaseapp.com",
+    databaseURL: "https://rivio-projetos-default-rtdb.firebaseio.com",
+    projectId: "rivio-projetos",
+    storageBucket: "rivio-projetos.firebasestorage.app",
+    messagingSenderId: "549628278181",
+    appId: "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // ── Expose Firebase helpers globally so non-module scripts can call them ──────
+  window._fb = { db, ref, set, update, remove, onValue, push, get };
+  window._fbReady = true;
+  document.dispatchEvent(new Event("firebase-ready"));
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;background:#f4f5f7;color:#111}
-#app{display:none;height:100vh;overflow:hidden}
+#app{display:flex;height:100vh;overflow:hidden}
 /* SIDEBAR */
 #sidebar{width:220px;background:#0f0f10;display:flex;flex-direction:column;flex-shrink:0}
 .sb-brand{padding:20px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1c1c1e}
@@ -176,28 +199,48 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<!-- ── SYNC INDICATOR ──────────────────────────────────────────────────── -->
-<div id="sync-bar" style="position:fixed;bottom:14px;right:16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 14px;font-size:11px;color:#6b7280;display:flex;align-items:center;gap:7px;z-index:500;box-shadow:0 2px 8px rgba(0,0,0,.08);pointer-events:none">
-  <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#10b981;transition:background .3s"></div>
-  <span id="sync-label">Ao vivo</span>
-</div>
-
-<!-- ── LOGIN SCREEN ─────────────────────────────────────────────────────── -->
-<div id="login-screen" style="display:flex;position:fixed;inset:0;background:#f4f5f7;z-index:10000;align-items:center;justify-content:center;flex-direction:column">
-  <div style="text-align:center;padding:48px 44px;background:#fff;border-radius:20px;border:1px solid #e5e7eb;box-shadow:0 8px 40px rgba(0,0,0,.10);max-width:400px;width:90%">
-    <img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" style="width:80px;height:80px;object-fit:cover;border-radius:16px;margin:0 auto 24px;display:block;box-shadow:0 2px 12px rgba(0,0,0,.12)"/>
-    <h1 style="font-size:22px;font-weight:800;color:#111;letter-spacing:-.03em;margin-bottom:6px">Gestão de Projetos</h1>
-    <p style="font-size:13px;color:#9ca3af;margin-bottom:36px">Rivio &middot; Acesso restrito</p>
-    <button id="google-login-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:13px 20px;background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;color:#374151;font-family:inherit;transition:all .15s;box-shadow:0 1px 4px rgba(0,0,0,.07)" onmouseover="this.style.borderColor='#6366f1';this.style.boxShadow='0 2px 12px rgba(99,102,241,.15)'" onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='0 1px 4px rgba(0,0,0,.07)'">
-      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Entrar com Google
-    </button>
-    <p id="login-error" style="font-size:12px;color:#ef4444;margin-top:16px;display:none"></p>
-  </div>
-</div>
-
 <div id="app">
-  <!-- shell: filled by render() after authentication -->
+  <div id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo" style="background:none;padding:0;overflow:hidden"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" style="width:32px;height:32px;object-fit:cover;border-radius:8px;display:block"/></div>
+      <div>
+        <div class="sb-title">Gestão de Projetos</div>
+        <div class="sb-sub" id="fb-status-label" style="display:flex;align-items:center;gap:4px">
+          <span id="fb-dot" style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span>
+          <span id="fb-status-text">Conectando…</span>
+        </div>
+      </div>
+    </div>
+    <div class="sb-nav" id="sb-nav">
+      <button class="sb-btn active" onclick="navigate('projects')" data-page="projects">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+        Projetos
+      </button>
+      <button class="sb-btn" onclick="navigate('dashboard')" data-page="dashboard">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="sb-btn" onclick="navigate('vagas')" data-page="vagas">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a9.5 9.5 0 0 1 13 0"/></svg>
+        Vagas
+      </button>
+      <button class="sb-btn" onclick="navigate('cadastro')" data-page="cadastro">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Cadastros
+      </button>
+      <button class="sb-btn" onclick="navigate('resumo')" data-page="resumo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        Resumo Equipes
+      </button>
+      <div id="sb-projects-list" style="margin-top:8px;border-top:1px solid #1c1c1e;padding-top:8px"></div>
+    </div>
+    <div class="sb-footer" id="sb-footer" style="display:none">
+      <div class="sb-footer-label">Progresso</div>
+      <div class="sb-prog-bar"><div class="sb-prog-fill" id="sb-prog-fill" style="width:0%"></div></div>
+      <div class="sb-prog-pct" id="sb-prog-pct">0%</div>
+    </div>
+  </div>
+  <div id="main"><div id="content"></div></div>
 </div>
 
 <!-- NEW PROJECT MODAL -->
@@ -334,59 +377,14 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<!-- Firebase Auth wired via addEventListener inside the module below (no onclick needed) -->
-<script type="module">
-import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut }
-                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getDatabase, ref, set, get, update, remove, onValue, push }
-                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<!-- Loading overlay -->
+<div id="fb-loading" style="position:fixed;inset:0;background:#0f0f10;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff">R</div>
+  <div style="color:#fff;font-size:14px;font-weight:600;font-family:'DM Sans','Segoe UI',system-ui,sans-serif">Conectando ao Firebase…</div>
+  <div id="fb-loading-bar" style="width:180px;height:3px;background:#1c1c1e;border-radius:4px;overflow:hidden"><div id="fb-loading-fill" style="height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;transition:width .4s"></div></div>
+</div>
 
-const firebaseConfig = {
-  apiKey:            "AIzaSyAfIUpGDAQrpXiU1RQJbbngyJp5RZx91T8",
-  authDomain:        "rivio-projetos.firebaseapp.com",
-  databaseURL:       "https://rivio-projetos-default-rtdb.firebaseio.com",
-  projectId:         "rivio-projetos",
-  storageBucket:     "rivio-projetos.firebasestorage.app",
-  messagingSenderId: "549628278181",
-  appId:             "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
-};
-const fbApp     = initializeApp(firebaseConfig);
-const auth      = getAuth(fbApp);
-const db        = getDatabase(fbApp);
-const gProvider = new GoogleAuthProvider();
-
-// ── Auth — wired directly via addEventListener so popup fires in same tick ──
-function doSignIn(){
-  const btn = document.getElementById("google-login-btn");
-  if(btn){ btn.disabled=true; btn.textContent="Entrando..."; }
-  signInWithPopup(auth, gProvider).catch(err=>{
-    const el = document.getElementById("login-error");
-    if(el){ el.textContent="Erro: "+err.message; el.style.display="block"; }
-    if(btn){ btn.disabled=false; btn.textContent="Entrar com Google"; }
-  });
-}
-function doSignOut(){ fbSignOut(auth); }
-
-// Wire the login button as soon as DOM is ready
-document.getElementById("google-login-btn").addEventListener("click", doSignIn);
-
-// Expose signOut for the sidebar button (rendered dynamically via render())
-window.signOut = doSignOut;
-
-// ── DB helpers ────────────────────────────────────────────────────────────
-function syncDot(state){
-  const dot=document.getElementById("sync-dot"),lbl=document.getElementById("sync-label");
-  if(!dot)return;
-  if(state==="saving"){dot.style.background="#f59e0b";lbl.textContent="Salvando...";}
-  else if(state==="saved"){dot.style.background="#10b981";lbl.textContent="Salvo";setTimeout(()=>lbl.textContent="Ao vivo",1500);}
-  else{dot.style.background="#ef4444";lbl.textContent="Erro ao salvar";}
-}
-async function fbSet(path,val){syncDot("saving");try{await set(ref(db,path),val);syncDot("saved");}catch(e){syncDot("error");console.error(e);}}
-async function fbRemove(path){syncDot("saving");try{await remove(ref(db,path));syncDot("saved");}catch(e){syncDot("error");}}
-async function fbUpdate(updates){syncDot("saving");try{await update(ref(db),updates);syncDot("saved");}catch(e){syncDot("error");}}
-function fbPushId(){return push(ref(db,"_")).key;}
-
+<script>
 // ─── TEMPLATE DATA ────────────────────────────────────────────────────────────
 const PALETTE = ["#6366f1","#0ea5e9","#f59e0b","#10b981","#ec4899","#ef4444","#8b5cf6","#14b8a6","#f97316","#64748b"];
 
@@ -439,11 +437,9 @@ const TEMPLATE_TASKS_DEF = [
 ];
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-// ── App state (kept in memory, populated from Firebase realtime listeners) ───
-let projects = [];          // implantation projects
+let projects = [];   // [{id, name, macros, tasks, expandedMacros, expandedGantt, linearApiKey, linearProjectId, linearIssues, ...}]
 let currentPage = "projects";
 let currentProjectId = null;
-let currentUser = null;     // Firebase Auth user object
 let modalChecklist = [];
 let macroModalSubs = [];
 let macroModalEditingId = null;
@@ -452,6 +448,179 @@ let linearFilterResp = new Set();
 let linearFilterPri = new Set();
 let linearSearch = "";
 let linearSort = "createdAt";
+
+// ─── FIREBASE SYNC ────────────────────────────────────────────────────────────
+let _fbLoadedCount = 0;
+const _fbTotalCollections = 4; // projects, employees, allocProjects, allocVacancies
+let _fbSuppressWrite = false;  // prevent re-writing while loading from Firebase
+let _fbInitDone = false;
+
+function _fbProgress(n){ document.getElementById("fb-loading-fill").style.width=(n*100/_fbTotalCollections)+"%"; }
+
+function _serializeProject(p){
+  return {
+    id: p.id,
+    name: p.name,
+    linearApiKey: p.linearApiKey||"",
+    linearProjectId: p.linearProjectId||"",
+    linearIssues: p.linearIssues||[],
+    expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [],
+    expandedGantt:  p.expandedGantt  ? [...p.expandedGantt]  : [],
+    macros: p.macros||[],
+    tasks:  p.tasks||[]
+  };
+}
+
+function _deserializeProject(raw){
+  return {
+    ...raw,
+    expandedMacros: new Set(raw.expandedMacros||[]),
+    expandedGantt:  new Set(raw.expandedGantt ||[]),
+    macros: raw.macros||[],
+    tasks:  raw.tasks ||[],
+    linearIssues: raw.linearIssues||[]
+  };
+}
+
+function fbSaveProject(p){
+  if(_fbSuppressWrite) return;
+  const {db,ref,set} = window._fb;
+  set(ref(db, "projects/"+p.id), _serializeProject(p));
+}
+
+function fbDeleteProject(id){
+  if(_fbSuppressWrite) return;
+  const {db,ref,remove} = window._fb;
+  remove(ref(db, "projects/"+id));
+}
+
+function fbSaveAllocEmployees(){
+  if(_fbSuppressWrite) return;
+  const {db,ref,set} = window._fb;
+  const obj = {};
+  allocEmployees.forEach(e=>{ obj[e.id]=e; });
+  set(ref(db,"allocEmployees"), obj);
+}
+
+function fbSaveAllocProjects(){
+  if(_fbSuppressWrite) return;
+  const {db,ref,set} = window._fb;
+  const obj = {};
+  allocProjects.forEach(p=>{ obj[p.id]=p; });
+  set(ref(db,"allocProjects"), obj);
+}
+
+function fbSaveAllocVacancies(){
+  if(_fbSuppressWrite) return;
+  const {db,ref,set} = window._fb;
+  const obj = {};
+  allocVacancies.forEach(v=>{ obj[v.id]=v; });
+  set(ref(db,"allocVacancies"), obj);
+}
+
+function _checkAllLoaded(){
+  _fbLoadedCount++;
+  _fbProgress(_fbLoadedCount);
+  if(_fbLoadedCount >= _fbTotalCollections && !_fbInitDone){
+    _fbInitDone = true;
+    // Set status indicator to connected
+    const dot=document.getElementById("fb-dot");
+    const txt=document.getElementById("fb-status-text");
+    if(dot){dot.style.background="#10b981";}
+    if(txt){txt.textContent="Firebase • ao vivo";}
+    setTimeout(()=>{
+      document.getElementById("fb-loading").style.display="none";
+      renderSidebarProjects();
+      render();
+    }, 300);
+  }
+}
+
+function _initFirebaseListeners(){
+  const {db,ref,onValue} = window._fb;
+
+  // ── Projects ──
+  onValue(ref(db,"projects"), snap=>{
+    _fbSuppressWrite = true;
+    const val = snap.val()||{};
+    // Preserve in-memory UI state (expanded sets) for already-loaded projects
+    const prevMap = {};
+    projects.forEach(p=>{ prevMap[p.id]=p; });
+    projects = Object.values(val).map(raw=>{
+      const deserialized = _deserializeProject(raw);
+      if(prevMap[raw.id]){
+        deserialized.expandedMacros = prevMap[raw.id].expandedMacros;
+        deserialized.expandedGantt  = prevMap[raw.id].expandedGantt;
+      }
+      return deserialized;
+    });
+    _fbSuppressWrite = false;
+    if(_fbInitDone){ renderSidebarProjects(); render(); }
+    else { _checkAllLoaded(); }
+  });
+
+  // ── Alloc Employees ──
+  onValue(ref(db,"allocEmployees"), snap=>{
+    _fbSuppressWrite = true;
+    const val = snap.val();
+    if(val) allocEmployees = Object.values(val);
+    _fbSuppressWrite = false;
+    if(_fbInitDone) render();
+    else _checkAllLoaded();
+  });
+
+  // ── Alloc Projects ──
+  onValue(ref(db,"allocProjects"), snap=>{
+    _fbSuppressWrite = true;
+    const val = snap.val();
+    if(val) allocProjects = Object.values(val);
+    _fbSuppressWrite = false;
+    if(_fbInitDone) render();
+    else _checkAllLoaded();
+  });
+
+  // ── Alloc Vacancies ──
+  onValue(ref(db,"allocVacancies"), snap=>{
+    _fbSuppressWrite = true;
+    const val = snap.val();
+    if(val) allocVacancies = Object.values(val);
+    else allocVacancies = [];
+    _fbSuppressWrite = false;
+    if(_fbInitDone) render();
+    else _checkAllLoaded();
+  });
+}
+
+// Seed default data to Firebase if collections are empty
+async function _seedIfEmpty(){
+  const {db,ref,get,set} = window._fb;
+
+  const [empSnap, projSnap, vacSnap] = await Promise.all([
+    get(ref(db,"allocEmployees")),
+    get(ref(db,"allocProjects")),
+    get(ref(db,"allocVacancies"))
+  ]);
+
+  if(!empSnap.exists()){
+    const obj={}; allocEmployees.forEach(e=>{obj[e.id]=e;}); await set(ref(db,"allocEmployees"),obj);
+  }
+  if(!projSnap.exists()){
+    const obj={}; allocProjects.forEach(p=>{obj[p.id]=p;}); await set(ref(db,"allocProjects"),obj);
+  }
+  if(!vacSnap.exists()){
+    const obj={}; allocVacancies.forEach(v=>{obj[v.id]=v;}); await set(ref(db,"allocVacancies"),obj);
+  }
+
+  // Now start listeners
+  _initFirebaseListeners();
+}
+
+// Wait for Firebase module to be ready
+if(window._fbReady){
+  _seedIfEmpty();
+} else {
+  document.addEventListener("firebase-ready", _seedIfEmpty);
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -532,6 +701,7 @@ function createProject(){
     linearApiKey:"", linearProjectId:"", linearIssues:[],
   };
   projects.push(proj);
+  fbSaveProject(proj);
   closeNewProjModal();
   renderSidebarProjects();
   openProject(id);
@@ -547,6 +717,7 @@ function deleteProject(id,e){
   const p=projects.find(x=>x.id===id);
   if(!confirm(`Excluir projeto "${p.name}"?`))return;
   projects=projects.filter(x=>x.id!==id);
+  fbDeleteProject(id);
   if(currentProjectId===id){currentProjectId=null;currentPage="projects";}
   renderSidebarProjects();
   render();
@@ -560,83 +731,25 @@ function navigate(page){
   render();
 }
 function render(){
-  // Build full app shell every render (sidebar + main)
-  const showFooter = currentPage==="schedule"&&currentProjectId&&getProject();
-  const p = showFooter ? getProject() : null;
-  const pct = p ? calcProgress(p.tasks) : 0;
-
-  document.getElementById("app").innerHTML = `
-    <div id="sidebar">
-      <div class="sb-brand">
-        <div class="sb-logo" style="background:none;padding:0;overflow:hidden">
-          <img src="${logo_b64}" style="width:32px;height:32px;object-fit:cover;border-radius:8px;display:block"/>
-        </div>
-        <div>
-          <div class="sb-title">Gestão de Projetos</div>
-          <div class="sb-sub">Rivio</div>
-        </div>
-      </div>
-      <div id="sb-user" style="padding:9px 14px;border-bottom:1px solid #1c1c1e;display:flex;align-items:center;gap:9px">
-        <img id="sb-user-photo" src="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;display:none;flex-shrink:0"/>
-        <div style="flex:1;min-width:0">
-          <div id="sb-user-name" style="font-size:12px;font-weight:600;color:#e5e7eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentUser?currentUser.displayName:""}</div>
-          <div id="sb-user-email" style="font-size:10px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${currentUser?currentUser.email:""}</div>
-        </div>
-        <button onclick="signOut()" title="Sair" style="background:none;border:none;cursor:pointer;color:#6b7280;padding:3px;display:flex;align-items:center;flex-shrink:0" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#6b7280'">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        </button>
-      </div>
-      <div class="sb-nav" id="sb-nav">
-        <button class="sb-btn ${currentPage==='projects'?'active':''}" onclick="navigate('projects')" data-page="projects">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-          Projetos
-        </button>
-        <button class="sb-btn ${currentPage==='dashboard'?'active':''}" onclick="navigate('dashboard')" data-page="dashboard">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          Dashboard
-        </button>
-        <button class="sb-btn ${currentPage==='vagas'?'active':''}" onclick="navigate('vagas')" data-page="vagas">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a9.5 9.5 0 0 1 13 0"/></svg>
-          Vagas
-        </button>
-        <button class="sb-btn ${currentPage==='cadastro'?'active':''}" onclick="navigate('cadastro')" data-page="cadastro">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Cadastros
-        </button>
-        <button class="sb-btn ${currentPage==='resumo'?'active':''}" onclick="navigate('resumo')" data-page="resumo">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-          Resumo Equipes
-        </button>
-        <div id="sb-projects-list" style="margin-top:8px;border-top:1px solid #1c1c1e;padding-top:8px"></div>
-      </div>
-      ${showFooter ? `
-      <div class="sb-footer" id="sb-footer">
-        <div class="sb-footer-label">Progresso</div>
-        <div class="sb-prog-bar"><div class="sb-prog-fill" id="sb-prog-fill" style="width:${pct}%"></div></div>
-        <div class="sb-prog-pct" id="sb-prog-pct">${pct}%</div>
-      </div>` : ""}
-    </div>
-    <div id="main"><div id="content"></div></div>`;
-
-  // Restore user photo if available
-  if(currentUser && currentUser.photoURL){
-    const ph = document.getElementById("sb-user-photo");
-    if(ph){ ph.src = currentUser.photoURL; ph.style.display = "block"; }
-  }
-
-  // Fill content
-  const c = document.getElementById("content");
-  if(currentPage==="projects")  c.innerHTML = renderProjects();
-  else if(currentPage==="dashboard") c.innerHTML = renderDashboard();
-  else if(currentPage==="schedule")  c.innerHTML = renderSchedule();
-  else if(currentPage==="vagas")     c.innerHTML = renderVagas();
-  else if(currentPage==="cadastro")  c.innerHTML = renderCadastro();
-  else if(currentPage==="resumo")    c.innerHTML = renderResumo();
-
-  // Fill sidebar project list
-  renderSidebarProjects();
+  updateSidebarFooter();
+  const c=document.getElementById("content");
+  if(currentPage==="projects") c.innerHTML=renderProjects();
+  else if(currentPage==="dashboard") c.innerHTML=renderDashboard();
+  else if(currentPage==="schedule") c.innerHTML=renderSchedule();
+  else if(currentPage==="vagas") c.innerHTML=renderVagas();
+  else if(currentPage==="cadastro") c.innerHTML=renderCadastro();
+  else if(currentPage==="resumo") c.innerHTML=renderResumo();
 }
-function updateSidebarFooter(){ /* handled inside render() */ }
+function updateSidebarFooter(){
+  const footer=document.getElementById("sb-footer");
+  if(currentPage==="schedule"&&currentProjectId){
+    const p=getProject(); if(!p){footer.style.display="none";return;}
+    const pct=calcProgress(p.tasks);
+    footer.style.display="block";
+    document.getElementById("sb-prog-fill").style.width=pct+"%";
+    document.getElementById("sb-prog-pct").textContent=pct+"%";
+  } else { footer.style.display="none"; }
+}
 function renderSidebarProjects(){
   const el=document.getElementById("sb-projects-list");
   if(!projects.length){el.innerHTML="";return;}
@@ -1215,6 +1328,7 @@ function saveSettingsInline(){
   const p=getProject();if(!p)return;
   p.linearApiKey=document.getElementById("sch-apikey").value.trim();
   p.linearProjectId=document.getElementById("sch-projectid").value.trim();
+  fbSaveProject(p);
   fetchLinear();
 }
 async function fetchLinear(){
@@ -1277,6 +1391,7 @@ function saveMacro(){
     p.macros.push({id:newId,name,color,subetapas:[...macroModalSubs],tipo});
     p.expandedMacros.add(newId);p.expandedGantt.add(newId);
   }
+  fbSaveProject(p);
   closeMacroModal();render();
 }
 function deleteMacro(id){
@@ -1287,6 +1402,7 @@ function deleteMacro(id){
   p.macros=p.macros.filter(x=>x.id!==id);
   p.tasks=p.tasks.filter(t=>t.macroId!==id);
   p.expandedMacros.delete(id);p.expandedGantt.delete(id);
+  fbSaveProject(p);
   render();
 }
 function openAddSubModal(macroId){openMacroModal(macroId);setTimeout(()=>document.getElementById("new-sub-input").focus(),100);}
@@ -1297,6 +1413,7 @@ function openRenameSubModal(macroId,oldName){
   const m=p.macros.find(x=>x.id===macroId);if(!m)return;
   const idx=m.subetapas.indexOf(oldName);if(idx>=0)m.subetapas[idx]=newName.trim();
   p.tasks.forEach(t=>{if(t.macroId===macroId&&t.subetapa===oldName)t.subetapa=newName.trim();});
+  fbSaveProject(p);
   render();
 }
 function deleteSubetapa(macroId,subName){
@@ -1305,6 +1422,7 @@ function deleteSubetapa(macroId,subName){
   if(!confirm(`Excluir subetapa "${subName}"?${cnt>0?` ${cnt} tarefa(s) perderão a subetapa.`:""}`))return;
   const m=p.macros.find(x=>x.id===macroId);if(m)m.subetapas=m.subetapas.filter(s=>s!==subName);
   p.tasks.forEach(t=>{if(t.macroId===macroId&&t.subetapa===subName)t.subetapa="";});
+  fbSaveProject(p);
   render();
 }
 
@@ -1388,12 +1506,14 @@ function saveTask(){
   };
   const idx=p.tasks.findIndex(t=>t.id===id);
   if(idx>=0)p.tasks[idx]=task;else p.tasks.push(task);
+  fbSaveProject(p);
   closeModal();render();
 }
 function deleteTask(id){
   const p=getProject();if(!p)return;
   if(!confirm("Excluir esta tarefa?"))return;
   p.tasks=p.tasks.filter(t=>t.id!==id);
+  fbSaveProject(p);
   render();
 }
 
@@ -1416,10 +1536,104 @@ const ALLOC_DOT_COLORS = {
   dev:"#fb923c", fde:"#f472b6", suporte:"#38bdf8", faturamento:"#fbbf24"
 };
 
-// ─── ALLOC STATE (populated from Firebase by listeners) ─────────────────────
-let allocEmployees = [];
-let allocProjects = [];
-let allocVacancies = [];
+// ─── ALLOC STATE ─────────────────────────────────────────────────────────────
+let allocEmployees = [
+  {id:"e1",nome:"Maria Clara",area:"Farmer"},{id:"e2",nome:"Henrique Azevedo",area:"Farmer"},
+  {id:"e3",nome:"Luís Felipe",area:"Farmer"},{id:"e4",nome:"Pedro Akra",area:"Farmer"},
+  {id:"e5",nome:"Brunna Dopper",area:"Auditoria"},{id:"e6",nome:"Raquel Baptista",area:"Auditoria"},
+  {id:"e7",nome:"Ana Baldovi",area:"Auditoria"},{id:"e8",nome:"Thaís Souza",area:"Auditoria"},
+  {id:"e9",nome:"Larissa Hildebrando",area:"Auditoria"},{id:"e10",nome:"Alessandra Ferreira",area:"Auditoria"},
+  {id:"e11",nome:"Rhavena Gomides",area:"Auditoria"},{id:"e12",nome:"Artur Giovanella",area:"Auditoria"},
+  {id:"e13",nome:"Verônica Rodrighero",area:"DS"},{id:"e14",nome:"João Victor",area:"DS"},
+  {id:"e15",nome:"Luís Lourenço",area:"DS"},{id:"e16",nome:"Bryan Muniz",area:"DS"},
+  {id:"e17",nome:"Elma Diniz",area:"DS"},{id:"e18",nome:"Bruno Mafra",area:"FDE"},
+  {id:"e19",nome:"Lucas Rota",area:"FDE"},{id:"e20",nome:"Amélio Junior",area:"Suporte"},
+  {id:"e21",nome:"William Rocha",area:"Suporte"},{id:"e22",nome:"Jaime Neto",area:"Suporte"},
+  {id:"e23",nome:"Gustavo",area:"Dev"},{id:"e24",nome:"Matheus Trevizan",area:"Dev"},
+];
+
+let allocProjects = [
+  {id:"p1",nome:"Santa Catarina",produto:"Auditoria",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
+  {id:"p2",nome:"Moriah",produto:"Takeover",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
+  {id:"p3",nome:"Alberto Sabin",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
+  {id:"p4",nome:"Santa Júlia",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
+  {id:"p5",nome:"HCOR",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p6",nome:"Rede D'or SP",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p7",nome:"Rede D'or DF",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p8",nome:"Orion",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p9",nome:"AC Camargo",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p10",nome:"AACD",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p11",nome:"Santa Helena",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p12",nome:"São Camilo",produto:"Glosa Garantida",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p13",nome:"BH",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p14",nome:"Santa Rita",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p15",nome:"Agnus Dei",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p16",nome:"Incar",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p17",nome:"Sírio",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p18",nome:"Sabará",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p19",nome:"HAOC",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p20",nome:"FSFX",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p21",nome:"Orizonti",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p22",nome:"São Lucas",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p23",nome:"Beep",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p24",nome:"Ang. Carón",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p25",nome:"Pró Saúde",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p26",nome:"Rafá",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p27",nome:"Samuel Libânio",produto:"Takeover",etapa:"Geração de Valor",dataInicio:"",descricao:""},
+  {id:"p28",nome:"Einstein",produto:"Auditoria",etapa:"Expansão",dataInicio:"",descricao:""},
+];
+
+let allocVacancies = [
+  {id:"v1",projetoId:"p5",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v2",projetoId:"p6",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v3",projetoId:"p7",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v4",projetoId:"p8",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v5",projetoId:"p9",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v6",projetoId:"p10",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v7",projetoId:"p11",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v8",projetoId:"p12",funcao:"Farmer",funcionarioId:"e3",descricao:""},
+  {id:"v9",projetoId:"p13",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v10",projetoId:"p14",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v11",projetoId:"p15",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v12",projetoId:"p16",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v13",projetoId:"p17",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v14",projetoId:"p18",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v15",projetoId:"p19",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v16",projetoId:"p20",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v17",projetoId:"p21",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v18",projetoId:"p22",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v19",projetoId:"p23",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v20",projetoId:"p24",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v21",projetoId:"p25",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v22",projetoId:"p26",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v23",projetoId:"p27",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v24",projetoId:"p28",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v25",projetoId:"p5",funcao:"Auditoria",funcionarioId:"",descricao:""},
+  {id:"v26",projetoId:"p6",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
+  {id:"v27",projetoId:"p7",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
+  {id:"v28",projetoId:"p9",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
+  {id:"v29",projetoId:"p10",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
+  {id:"v30",projetoId:"p11",funcao:"Auditoria",funcionarioId:"e6",descricao:""},
+  {id:"v31",projetoId:"p12",funcao:"Auditoria",funcionarioId:"e12",descricao:""},
+  {id:"v32",projetoId:"p17",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v33",projetoId:"p18",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v34",projetoId:"p19",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v35",projetoId:"p23",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v36",projetoId:"p24",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v37",projetoId:"p25",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v38",projetoId:"p26",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v39",projetoId:"p27",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v40",projetoId:"p28",funcao:"Suporte",funcionarioId:"e21",descricao:""},
+  {id:"v41",projetoId:"p12",funcao:"DS",funcionarioId:"e15",descricao:""},
+  {id:"v42",projetoId:"p9",funcao:"DS",funcionarioId:"e15",descricao:""},
+  {id:"v43",projetoId:"p10",funcao:"DS",funcionarioId:"e17",descricao:""},
+  {id:"v44",projetoId:"p11",funcao:"DS",funcionarioId:"e14",descricao:""},
+  {id:"v45",projetoId:"p12",funcao:"DS",funcionarioId:"e16",descricao:""},
+  {id:"v46",projetoId:"p13",funcao:"DS",funcionarioId:"e13",descricao:""},
+  {id:"v47",projetoId:"p11",funcao:"FDE",funcionarioId:"e18",descricao:""},
+  {id:"v48",projetoId:"p12",funcao:"FDE",funcionarioId:"e18",descricao:""},
+];
+
 // ─── ALLOC FILTER STATE ───────────────────────────────────────────────────────
 let vacFilter = { search:"", projeto:"", funcionario:"", status:"" };
 let allocModal = null; // {type, data}
@@ -1846,6 +2060,7 @@ function saveAllocEmployee(editId){
   } else {
     allocEmployees.push({id:allocGenId(),nome,area});
   }
+  fbSaveAllocEmployees();
   closeAllocModal();
   render();
 }
@@ -1863,6 +2078,7 @@ function saveAllocProject(editId){
   } else {
     allocProjects.push({id:allocGenId(),nome,produto,etapa,dataInicio,descricao});
   }
+  fbSaveAllocProjects();
   closeAllocModal();
   render();
 }
@@ -1879,6 +2095,7 @@ function saveAllocVacancy(editId){
   } else {
     allocVacancies.push({id:allocGenId(),projetoId,funcao,funcionarioId,descricao});
   }
+  fbSaveAllocVacancies();
   closeAllocModal();
   render();
 }
@@ -1898,399 +2115,23 @@ function deleteAlloc(type, id){
   if(type==="employee"){
     allocEmployees=allocEmployees.filter(e=>e.id!==id);
     allocVacancies=allocVacancies.map(v=>v.funcionarioId===id?{...v,funcionarioId:""}:v);
+    fbSaveAllocEmployees();
+    fbSaveAllocVacancies();
   } else if(type==="project"){
     allocProjects=allocProjects.filter(p=>p.id!==id);
     allocVacancies=allocVacancies.filter(v=>v.projetoId!==id);
+    fbSaveAllocProjects();
+    fbSaveAllocVacancies();
   } else if(type==="vacancy"){
     allocVacancies=allocVacancies.filter(v=>v.id!==id);
+    fbSaveAllocVacancies();
   }
   render();
 }
 
-// ─── FIREBASE INIT ────────────────────────────────────────────────────────────
-// Convert Firebase object snapshots to arrays with id preserved
-function snapToArr(snapshot){
-  if(!snapshot.exists()) return [];
-  const val = snapshot.val();
-  return Object.entries(val).map(([k,v])=>typeof v==='object'&&v!==null ? {...v, id:k} : {id:k,value:v});
-}
-
-// Seed alloc data if collections are empty
-async function seedIfEmpty(){
-  const empSnap = await get(ref(db,"employees"));
-  if(!empSnap.exists()){
-    const empObj={};
-    SEED_EMPLOYEES.forEach(e=>{ empObj[e.id]=e; });
-    await set(ref(db,"employees"),empObj);
-  }
-  const prjSnap = await get(ref(db,"allocProjects"));
-  if(!prjSnap.exists()){
-    const prjObj={};
-    SEED_ALLOC_PROJECTS.forEach(p=>{ prjObj[p.id]=p; });
-    await set(ref(db,"allocProjects"),prjObj);
-  }
-}
-
-// Wire up realtime listeners — call after auth confirmed
-function startListeners(){
-  onValue(ref(db,"implantProjects"), snap=>{
-    if(!snap.exists()){ projects=[]; render(); return; }
-    const raw = snap.val();
-    projects = Object.entries(raw).map(([k,v])=>{
-      const tasksArr  = v.tasks   ? Object.values(v.tasks)   : [];
-      const macrosArr = v.macros  ? Object.values(v.macros)  : [];
-      const issuesArr = v.linearIssues ? Object.values(v.linearIssues) : [];
-      return {
-        ...v, id:k,
-        tasks:   tasksArr,
-        macros:  macrosArr,
-        linearIssues: issuesArr,
-        expandedMacros: new Set(v.expandedMacrosArr  || macrosArr.slice(0,2).map(m=>m.id)),
-        expandedGantt:  new Set(v.expandedGanttArr   || macrosArr.map(m=>m.id)),
-      };
-    });
-    render();
-  });
-
-  onValue(ref(db,"employees"), snap=>{
-    allocEmployees = snap.exists() ? Object.entries(snap.val()).map(([k,v])=>({...v,id:k})) : [];
-    render();
-  });
-
-  onValue(ref(db,"allocProjects"), snap=>{
-    allocProjects = snap.exists() ? Object.entries(snap.val()).map(([k,v])=>({...v,id:k})) : [];
-    render();
-  });
-
-  onValue(ref(db,"vacancies"), snap=>{
-    allocVacancies = snap.exists() ? Object.entries(snap.val()).map(([k,v])=>({...v,id:k})) : [];
-    render();
-  });
-}
-
-// Override all local-mutation functions to write to Firebase instead
-// ── Implant projects ──────────────────────────────────────────────────────
-const _origCreateProject = createProject;
-window.createProject = async function(){
-  // intercept name + format before original fires
-  const name = document.getElementById("np-name-sel").value.trim();
-  if(!name){alert("Selecione um projeto.");return;}
-  const fmt       = document.getElementById("np-format").value;
-  const startDate = document.getElementById("np-date").value||"2026-04-01";
-  const id        = fbPushId();
-  let macros=[], tasks=[];
-  if(fmt==="template"){
-    macros = JSON.parse(JSON.stringify(TEMPLATE_MACROS));
-    const allocProj = allocProjects.find(ap=>ap.nome===name);
-    const funcaoToName={};
-    if(allocProj){
-      allocVacancies.filter(v=>v.projetoId===allocProj.id&&v.funcionarioId).forEach(v=>{
-        if(!funcaoToName[v.funcao]){const emp=allocEmployees.find(e=>e.id===v.funcionarioId);if(emp)funcaoToName[v.funcao]=emp.nome;}
-      });
-    }
-    tasks = TEMPLATE_TASKS_DEF.map(def=>({
-      id: fbPushId(), name:def.name, macroId:def.macroId, subetapa:def.subetapa,
-      start:dateFromOffset(startDate,def.startOff), end:dateFromOffset(startDate,def.endOff),
-      status:"Não Iniciado", responsible:funcaoToName[def.funcaoResp]||"",
-      effort:def.effort, description:"", checklist:[], notes:""
-    }));
-  }
-  const tasksObj  = {}; tasks.forEach(t=>{ tasksObj[t.id]=t; });
-  const macrosObj = {}; macros.forEach(m=>{ macrosObj[m.id]=m; });
-  const proj = {
-    id, name,
-    macros:  macrosObj,
-    tasks:   tasksObj,
-    expandedMacrosArr: macros.slice(0,2).map(m=>m.id),
-    expandedGanttArr:  macros.map(m=>m.id),
-    linearApiKey:"", linearProjectId:"", linearIssues:{}
-  };
-  await fbSet("implantProjects/"+id, proj);
-  closeNewProjModal();
-  currentProjectId=id; currentPage="schedule";
-  renderSidebarProjects();
-};
-
-window.deleteProject = async function(id,e){
-  if(e)e.stopPropagation();
-  const p=projects.find(x=>x.id===id);
-  if(!confirm("Excluir projeto ""+p?.name+""?"))return;
-  await fbRemove("implantProjects/"+id);
-  if(currentProjectId===id){currentProjectId=null;currentPage="projects";}
-  renderSidebarProjects();
-};
-
-// Save task to Firebase
-const _savTaskLocal = saveTask;
-window.saveTask = async function(){
-  const p=getProject(); if(!p)return;
-  const id=document.getElementById("f-id").value;
-  const task={
-    id, name:document.getElementById("f-name").value.trim()||"Sem título",
-    macroId:Number(document.getElementById("f-macro").value),
-    subetapa:document.getElementById("f-sub").value,
-    start:document.getElementById("f-start").value,
-    end:document.getElementById("f-end").value,
-    status:document.getElementById("f-status").value,
-    responsible:document.getElementById("f-resp").value||"",
-    effort:Number(document.getElementById("f-effort").value)||3,
-    description:document.getElementById("f-desc").value,
-    checklist:[...modalChecklist],
-    notes:document.getElementById("f-notes").value,
-  };
-  await fbSet("implantProjects/"+p.id+"/tasks/"+id, task);
-  closeModal();
-};
-
-window.deleteTask = async function(id){
-  const p=getProject(); if(!p||!confirm("Excluir esta tarefa?"))return;
-  await fbRemove("implantProjects/"+p.id+"/tasks/"+id);
-};
-
-// Save macro to Firebase
-const _savMacroLocal = saveMacro;
-window.saveMacro = async function(){
-  const p=getProject(); if(!p)return;
-  const name=document.getElementById("m-name").value.trim(); if(!name){alert("Informe o nome.");return;}
-  const color=document.getElementById("m-color").value;
-  const tipo=document.getElementById("m-tipo-sus").checked?"Sustentação":"Implantação";
-  if(macroModalEditingId){
-    const m=p.macros.find(x=>x.id===macroModalEditingId);
-    if(m){
-      await fbUpdate({
-        ["implantProjects/"+p.id+"/macros/"+macroModalEditingId+"/name"]:name,
-        ["implantProjects/"+p.id+"/macros/"+macroModalEditingId+"/color"]:color,
-        ["implantProjects/"+p.id+"/macros/"+macroModalEditingId+"/subetapas"]:[...macroModalSubs],
-        ["implantProjects/"+p.id+"/macros/"+macroModalEditingId+"/tipo"]:tipo,
-      });
-    }
-  } else {
-    const newId = Math.max(0,...p.macros.map(x=>x.id))+1;
-    await fbSet("implantProjects/"+p.id+"/macros/"+newId, {id:newId,name,color,subetapas:[...macroModalSubs],tipo});
-    const newExpM=[...p.expandedMacros,newId];
-    const newExpG=[...p.expandedGantt,newId];
-    await fbUpdate({
-      ["implantProjects/"+p.id+"/expandedMacrosArr"]:newExpM,
-      ["implantProjects/"+p.id+"/expandedGanttArr"]:newExpG,
-    });
-  }
-  closeMacroModal();
-};
-
-window.deleteMacro = async function(id){
-  const p=getProject(); if(!p)return;
-  const m=p.macros.find(x=>x.id===id);
-  const cnt=p.tasks.filter(t=>t.macroId===id).length;
-  if(!confirm("Excluir ""+m?.name+""?"+(cnt>0?" "+cnt+" tarefa(s) também serão removidas.":"")))return;
-  // remove macro + its tasks from Firebase
-  const updates={};
-  updates["implantProjects/"+p.id+"/macros/"+id]=null;
-  p.tasks.filter(t=>t.macroId===id).forEach(t=>{ updates["implantProjects/"+p.id+"/tasks/"+t.id]=null; });
-  await fbUpdate(updates);
-};
-
-// Toggle expand → persist arrays
-window.toggleMacroExpand = async function(id){
-  const p=getProject(); if(!p)return;
-  if(p.expandedMacros.has(id)) p.expandedMacros.delete(id); else p.expandedMacros.add(id);
-  await fbSet("implantProjects/"+p.id+"/expandedMacrosArr",[...p.expandedMacros]);
-  render();
-};
-window.toggleGanttExpand = async function(id){
-  const p=getProject(); if(!p)return;
-  if(p.expandedGantt.has(id)) p.expandedGantt.delete(id); else p.expandedGantt.add(id);
-  await fbSet("implantProjects/"+p.id+"/expandedGanttArr",[...p.expandedGantt]);
-  render();
-};
-
-// Linear settings
-window.saveLinearSettings = async function(){
-  const p=getProject(); if(!p)return;
-  const key=document.getElementById("lin-key").value.trim();
-  const pid=document.getElementById("lin-pid").value.trim();
-  await fbUpdate({
-    ["implantProjects/"+p.id+"/linearApiKey"]:key,
-    ["implantProjects/"+p.id+"/linearProjectId"]:pid,
-  });
-  p.linearApiKey=key; p.linearProjectId=pid;
-  fetchLinear();
-};
-
-// Linear fetch + store issues
-const _origFetchLinear = typeof fetchLinear === "function" ? fetchLinear : null;
-window.fetchLinear = async function(){
-  const p=getProject(); if(!p||!p.linearApiKey)return;
-  const statusEl=document.getElementById("lin-status");
-  if(statusEl)statusEl.innerHTML="<div style='padding:10px;background:#eff6ff;border-radius:8px;color:#1d4ed8;font-size:12px;margin-bottom:10px'>Carregando issues...</div>";
-  try{
-    const q="{issues(filter:{"+(p.linearProjectId?"project:{id:{eq:""+p.linearProjectId+""}}":'')+"})  {nodes{id title state{name} assignee{name} priority createdAt url project{name} team{name}}}}";
-    const res=await fetch("https://api.linear.app/graphql",{method:"POST",headers:{"Authorization":p.linearApiKey,"Content-Type":"application/json"},body:JSON.stringify({query:q})});
-    const data=await res.json();
-    if(data.errors)throw new Error(data.errors[0].message);
-    const issues=data.data?.issues?.nodes||[];
-    const issObj={}; issues.forEach((iss,i)=>{ issObj["i"+i]=iss; });
-    await fbSet("implantProjects/"+p.id+"/linearIssues", issObj);
-    if(statusEl)statusEl.innerHTML="";
-  }catch(e){
-    if(statusEl)statusEl.innerHTML="<div style='padding:10px;background:#fef2f2;border-radius:8px;color:#b91c1c;font-size:12px;margin-bottom:10px'>Erro: "+e.message+"</div>";
-  }
-};
-
-// Subetapa rename / delete
-window.openRenameSubModal = async function(macroId,oldName){
-  const p=getProject(); if(!p)return;
-  const newName=prompt("Renomear subetapa:",oldName);
-  if(!newName||!newName.trim()||newName.trim()===oldName)return;
-  const m=p.macros.find(x=>x.id===macroId); if(!m)return;
-  const idx=m.subetapas.indexOf(oldName);
-  if(idx>=0){
-    const subs=[...m.subetapas]; subs[idx]=newName.trim();
-    await fbSet("implantProjects/"+p.id+"/macros/"+macroId+"/subetapas",subs);
-    const updates={};
-    p.tasks.filter(t=>t.macroId===macroId&&t.subetapa===oldName).forEach(t=>{
-      updates["implantProjects/"+p.id+"/tasks/"+t.id+"/subetapa"]=newName.trim();
-    });
-    if(Object.keys(updates).length) await fbUpdate(updates);
-  }
-};
-
-window.deleteSubetapa = async function(macroId,subName){
-  const p=getProject(); if(!p)return;
-  const cnt=p.tasks.filter(t=>t.macroId===macroId&&t.subetapa===subName).length;
-  if(!confirm("Excluir subetapa ""+subName+""?"+(cnt>0?" "+cnt+" tarefa(s) perderão a subetapa.":"")))return;
-  const m=p.macros.find(x=>x.id===macroId); if(!m)return;
-  const subs=m.subetapas.filter(s=>s!==subName);
-  await fbSet("implantProjects/"+p.id+"/macros/"+macroId+"/subetapas",subs);
-  const updates={};
-  p.tasks.filter(t=>t.macroId===macroId&&t.subetapa===subName).forEach(t=>{
-    updates["implantProjects/"+p.id+"/tasks/"+t.id+"/subetapa"]="";
-  });
-  if(Object.keys(updates).length) await fbUpdate(updates);
-};
-
-// ── Alloc CRUD → Firebase ─────────────────────────────────────────────────
-window.saveAllocEmployee = async function(editId){
-  const nome=document.getElementById("am-nome").value.trim();
-  const area=document.getElementById("am-area").value;
-  if(!nome){alert("Informe o nome do funcionário.");return;}
-  const id=editId||fbPushId();
-  await fbSet("employees/"+id,{id,nome,area});
-  closeAllocModal();
-};
-
-window.saveAllocProject = async function(editId){
-  const nome=document.getElementById("am-nome").value.trim();
-  const produto=document.getElementById("am-produto").value;
-  const etapa=document.getElementById("am-etapa").value;
-  const dataInicio=document.getElementById("am-data").value;
-  const descricao=document.getElementById("am-desc").value.trim();
-  if(!nome){alert("Informe o nome do projeto.");return;}
-  const id=editId||fbPushId();
-  await fbSet("allocProjects/"+id,{id,nome,produto,etapa,dataInicio,descricao});
-  closeAllocModal();
-};
-
-window.saveAllocVacancy = async function(editId){
-  const projetoId=document.getElementById("am-projeto").value;
-  const funcao=document.getElementById("am-funcao").value;
-  const funcionarioId=document.getElementById("am-func").value||"";
-  const descricao=document.getElementById("am-desc").value.trim();
-  if(!projetoId){alert("Selecione um projeto.");return;}
-  const id=editId||fbPushId();
-  await fbSet("vacancies/"+id,{id,projetoId,funcao,funcionarioId,descricao});
-  closeAllocModal();
-};
-
-window.deleteAlloc = async function(type,id){
-  let msg="Excluir este item?";
-  if(type==="employee"){const e=allocEmployees.find(x=>x.id===id);msg="Excluir funcionário ""+e?.nome+""? As vagas vinculadas ficarão em aberto.";}
-  else if(type==="project"){const p=allocProjects.find(x=>x.id===id);msg="Excluir projeto ""+p?.nome+""? As vagas vinculadas também serão removidas.";}
-  if(!confirm(msg))return;
-  if(type==="employee"){
-    await fbRemove("employees/"+id);
-    const updates={};
-    allocVacancies.filter(v=>v.funcionarioId===id).forEach(v=>{ updates["vacancies/"+v.id+"/funcionarioId"]=""; });
-    if(Object.keys(updates).length) await fbUpdate(updates);
-  } else if(type==="project"){
-    await fbRemove("allocProjects/"+id);
-    for(const v of allocVacancies.filter(v=>v.projetoId===id)) await fbRemove("vacancies/"+v.id);
-  } else if(type==="vacancy"){
-    await fbRemove("vacancies/"+id);
-  }
-};
-
-// ── Auth gate + bootstrap ──────────────────────────────────────────────────
-onAuthStateChanged(auth, async user=>{
-  const loginEl = document.getElementById("login-screen");
-  const appEl   = document.getElementById("app");
-  if(user){
-    currentUser = user;
-    // Update sidebar user info
-    const nameEl  = document.getElementById("sb-user-name");
-    const emailEl = document.getElementById("sb-user-email");
-    const photoEl = document.getElementById("sb-user-photo");
-    if(nameEl)  nameEl.textContent  = user.displayName||"";
-    if(emailEl) emailEl.textContent = user.email||"";
-    if(photoEl&&user.photoURL){ photoEl.src=user.photoURL; photoEl.style.display="block"; }
-    // Hide login, show app
-    loginEl.style.display="none"; appEl.style.display="flex";
-    // Seed data if needed, then start listeners
-    await seedIfEmpty();
-    startListeners();
-  } else {
-    currentUser = null;
-    appEl.style.display="none";
-    loginEl.style.display="flex";
-    // Reset state
-    projects=[]; allocEmployees=[]; allocProjects=[]; allocVacancies=[];
-  }
-});
-
-// Seed data constants (used by seedIfEmpty)
-const SEED_EMPLOYEES = [
-  {id:"e1",nome:"Maria Clara",area:"Farmer"},{id:"e2",nome:"Henrique Azevedo",area:"Farmer"},
-  {id:"e3",nome:"Luís Felipe",area:"Farmer"},{id:"e4",nome:"Pedro Akra",area:"Farmer"},
-  {id:"e5",nome:"Brunna Dopper",area:"Auditoria"},{id:"e6",nome:"Raquel Baptista",area:"Auditoria"},
-  {id:"e7",nome:"Ana Baldovi",area:"Auditoria"},{id:"e8",nome:"Thaís Souza",area:"Auditoria"},
-  {id:"e9",nome:"Larissa Hildebrando",area:"Auditoria"},{id:"e10",nome:"Alessandra Ferreira",area:"Auditoria"},
-  {id:"e11",nome:"Rhavena Gomides",area:"Auditoria"},{id:"e12",nome:"Artur Giovanella",area:"Auditoria"},
-  {id:"e13",nome:"Verônica Rodrighero",area:"DS"},{id:"e14",nome:"João Victor",area:"DS"},
-  {id:"e15",nome:"Luís Lourenço",area:"DS"},{id:"e16",nome:"Bryan Muniz",area:"DS"},
-  {id:"e17",nome:"Elma Diniz",area:"DS"},{id:"e18",nome:"Bruno Mafra",area:"FDE"},
-  {id:"e19",nome:"Lucas Rota",area:"FDE"},{id:"e20",nome:"Amélio Junior",area:"Suporte"},
-  {id:"e21",nome:"William Rocha",area:"Suporte"},{id:"e22",nome:"Jaime Neto",area:"Suporte"},
-  {id:"e23",nome:"Gustavo",area:"Dev"},{id:"e24",nome:"Matheus Trevizan",area:"Dev"},
-];
-const SEED_ALLOC_PROJECTS = [
-  {id:"p1",nome:"Santa Catarina",produto:"Auditoria",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
-  {id:"p2",nome:"Moriah",produto:"Takeover",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
-  {id:"p3",nome:"Alberto Sabin",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
-  {id:"p4",nome:"Santa Júlia",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
-  {id:"p5",nome:"HCOR",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p6",nome:"Rede D'or SP",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p7",nome:"Rede D'or DF",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p8",nome:"Orion",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p9",nome:"AC Camargo",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p10",nome:"AACD",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p11",nome:"Santa Helena",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p12",nome:"São Camilo",produto:"Glosa Garantida",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p13",nome:"BH",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p14",nome:"Santa Rita",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p15",nome:"Agnus Dei",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p16",nome:"Incar",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p17",nome:"Sírio",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p18",nome:"Sabará",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p19",nome:"HAOC",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p20",nome:"FSFX",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p21",nome:"Orizonti",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p22",nome:"São Lucas",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p23",nome:"Beep",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p24",nome:"Ang. Carón",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p25",nome:"Pró Saúde",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p26",nome:"Rafá",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p27",nome:"Samuel Libânio",produto:"Takeover",etapa:"Geração de Valor",dataInicio:"",descricao:""},
-  {id:"p28",nome:"Einstein",produto:"Auditoria",etapa:"Expansão",dataInicio:"",descricao:""},
-];
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+// Initial render is triggered by Firebase listeners after data loads.
+// _fbInitDone flag prevents render() before data is ready.
 </script>
 </body>
 </html>
