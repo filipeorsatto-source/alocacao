@@ -5,28 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Gestão de Projetos</title>
 <!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, update, remove, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAfIUpGDAQrpXiU1RQJbbngyJp5RZx91T8",
-    authDomain: "rivio-projetos.firebaseapp.com",
-    databaseURL: "https://rivio-projetos-default-rtdb.firebaseio.com",
-    projectId: "rivio-projetos",
-    storageBucket: "rivio-projetos.firebasestorage.app",
-    messagingSenderId: "549628278181",
-    appId: "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
-
-  // ── Expose Firebase helpers globally so non-module scripts can call them ──────
-  window._fb = { db, ref, set, update, remove, onValue, push, get };
-  window._fbReady = true;
-  document.dispatchEvent(new Event("firebase-ready"));
-</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;background:#f4f5f7;color:#111}
@@ -205,10 +185,7 @@ tr:last-child td{border-bottom:none}
       <div class="sb-logo" style="background:none;padding:0;overflow:hidden"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" style="width:32px;height:32px;object-fit:cover;border-radius:8px;display:block"/></div>
       <div>
         <div class="sb-title">Gestão de Projetos</div>
-        <div class="sb-sub" id="fb-status-label" style="display:flex;align-items:center;gap:4px">
-          <span id="fb-dot" style="width:6px;height:6px;border-radius:50%;background:#f59e0b;display:inline-block;flex-shrink:0"></span>
-          <span id="fb-status-text">Conectando…</span>
-        </div>
+        <div class="sb-sub">Rivio</div>
       </div>
     </div>
     <div class="sb-nav" id="sb-nav">
@@ -377,13 +354,6 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
-<!-- Loading overlay -->
-<div id="fb-loading" style="position:fixed;inset:0;background:#0f0f10;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
-  <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff">R</div>
-  <div style="color:#fff;font-size:14px;font-weight:600;font-family:'DM Sans','Segoe UI',system-ui,sans-serif">Conectando ao Firebase…</div>
-  <div id="fb-loading-bar" style="width:180px;height:3px;background:#1c1c1e;border-radius:4px;overflow:hidden"><div id="fb-loading-fill" style="height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);width:0%;transition:width .4s"></div></div>
-</div>
-
 <script>
 // ─── TEMPLATE DATA ────────────────────────────────────────────────────────────
 const PALETTE = ["#6366f1","#0ea5e9","#f59e0b","#10b981","#ec4899","#ef4444","#8b5cf6","#14b8a6","#f97316","#64748b"];
@@ -448,179 +418,6 @@ let linearFilterResp = new Set();
 let linearFilterPri = new Set();
 let linearSearch = "";
 let linearSort = "createdAt";
-
-// ─── FIREBASE SYNC ────────────────────────────────────────────────────────────
-let _fbLoadedCount = 0;
-const _fbTotalCollections = 4; // projects, employees, allocProjects, allocVacancies
-let _fbSuppressWrite = false;  // prevent re-writing while loading from Firebase
-let _fbInitDone = false;
-
-function _fbProgress(n){ document.getElementById("fb-loading-fill").style.width=(n*100/_fbTotalCollections)+"%"; }
-
-function _serializeProject(p){
-  return {
-    id: p.id,
-    name: p.name,
-    linearApiKey: p.linearApiKey||"",
-    linearProjectId: p.linearProjectId||"",
-    linearIssues: p.linearIssues||[],
-    expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [],
-    expandedGantt:  p.expandedGantt  ? [...p.expandedGantt]  : [],
-    macros: p.macros||[],
-    tasks:  p.tasks||[]
-  };
-}
-
-function _deserializeProject(raw){
-  return {
-    ...raw,
-    expandedMacros: new Set(raw.expandedMacros||[]),
-    expandedGantt:  new Set(raw.expandedGantt ||[]),
-    macros: raw.macros||[],
-    tasks:  raw.tasks ||[],
-    linearIssues: raw.linearIssues||[]
-  };
-}
-
-function fbSaveProject(p){
-  if(_fbSuppressWrite) return;
-  const {db,ref,set} = window._fb;
-  set(ref(db, "projects/"+p.id), _serializeProject(p));
-}
-
-function fbDeleteProject(id){
-  if(_fbSuppressWrite) return;
-  const {db,ref,remove} = window._fb;
-  remove(ref(db, "projects/"+id));
-}
-
-function fbSaveAllocEmployees(){
-  if(_fbSuppressWrite) return;
-  const {db,ref,set} = window._fb;
-  const obj = {};
-  allocEmployees.forEach(e=>{ obj[e.id]=e; });
-  set(ref(db,"allocEmployees"), obj);
-}
-
-function fbSaveAllocProjects(){
-  if(_fbSuppressWrite) return;
-  const {db,ref,set} = window._fb;
-  const obj = {};
-  allocProjects.forEach(p=>{ obj[p.id]=p; });
-  set(ref(db,"allocProjects"), obj);
-}
-
-function fbSaveAllocVacancies(){
-  if(_fbSuppressWrite) return;
-  const {db,ref,set} = window._fb;
-  const obj = {};
-  allocVacancies.forEach(v=>{ obj[v.id]=v; });
-  set(ref(db,"allocVacancies"), obj);
-}
-
-function _checkAllLoaded(){
-  _fbLoadedCount++;
-  _fbProgress(_fbLoadedCount);
-  if(_fbLoadedCount >= _fbTotalCollections && !_fbInitDone){
-    _fbInitDone = true;
-    // Set status indicator to connected
-    const dot=document.getElementById("fb-dot");
-    const txt=document.getElementById("fb-status-text");
-    if(dot){dot.style.background="#10b981";}
-    if(txt){txt.textContent="Firebase • ao vivo";}
-    setTimeout(()=>{
-      document.getElementById("fb-loading").style.display="none";
-      renderSidebarProjects();
-      render();
-    }, 300);
-  }
-}
-
-function _initFirebaseListeners(){
-  const {db,ref,onValue} = window._fb;
-
-  // ── Projects ──
-  onValue(ref(db,"projects"), snap=>{
-    _fbSuppressWrite = true;
-    const val = snap.val()||{};
-    // Preserve in-memory UI state (expanded sets) for already-loaded projects
-    const prevMap = {};
-    projects.forEach(p=>{ prevMap[p.id]=p; });
-    projects = Object.values(val).map(raw=>{
-      const deserialized = _deserializeProject(raw);
-      if(prevMap[raw.id]){
-        deserialized.expandedMacros = prevMap[raw.id].expandedMacros;
-        deserialized.expandedGantt  = prevMap[raw.id].expandedGantt;
-      }
-      return deserialized;
-    });
-    _fbSuppressWrite = false;
-    if(_fbInitDone){ renderSidebarProjects(); render(); }
-    else { _checkAllLoaded(); }
-  });
-
-  // ── Alloc Employees ──
-  onValue(ref(db,"allocEmployees"), snap=>{
-    _fbSuppressWrite = true;
-    const val = snap.val();
-    if(val) allocEmployees = Object.values(val);
-    _fbSuppressWrite = false;
-    if(_fbInitDone) render();
-    else _checkAllLoaded();
-  });
-
-  // ── Alloc Projects ──
-  onValue(ref(db,"allocProjects"), snap=>{
-    _fbSuppressWrite = true;
-    const val = snap.val();
-    if(val) allocProjects = Object.values(val);
-    _fbSuppressWrite = false;
-    if(_fbInitDone) render();
-    else _checkAllLoaded();
-  });
-
-  // ── Alloc Vacancies ──
-  onValue(ref(db,"allocVacancies"), snap=>{
-    _fbSuppressWrite = true;
-    const val = snap.val();
-    if(val) allocVacancies = Object.values(val);
-    else allocVacancies = [];
-    _fbSuppressWrite = false;
-    if(_fbInitDone) render();
-    else _checkAllLoaded();
-  });
-}
-
-// Seed default data to Firebase if collections are empty
-async function _seedIfEmpty(){
-  const {db,ref,get,set} = window._fb;
-
-  const [empSnap, projSnap, vacSnap] = await Promise.all([
-    get(ref(db,"allocEmployees")),
-    get(ref(db,"allocProjects")),
-    get(ref(db,"allocVacancies"))
-  ]);
-
-  if(!empSnap.exists()){
-    const obj={}; allocEmployees.forEach(e=>{obj[e.id]=e;}); await set(ref(db,"allocEmployees"),obj);
-  }
-  if(!projSnap.exists()){
-    const obj={}; allocProjects.forEach(p=>{obj[p.id]=p;}); await set(ref(db,"allocProjects"),obj);
-  }
-  if(!vacSnap.exists()){
-    const obj={}; allocVacancies.forEach(v=>{obj[v.id]=v;}); await set(ref(db,"allocVacancies"),obj);
-  }
-
-  // Now start listeners
-  _initFirebaseListeners();
-}
-
-// Wait for Firebase module to be ready
-if(window._fbReady){
-  _seedIfEmpty();
-} else {
-  document.addEventListener("firebase-ready", _seedIfEmpty);
-}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -701,7 +498,6 @@ function createProject(){
     linearApiKey:"", linearProjectId:"", linearIssues:[],
   };
   projects.push(proj);
-  fbSaveProject(proj);
   closeNewProjModal();
   renderSidebarProjects();
   openProject(id);
@@ -717,7 +513,6 @@ function deleteProject(id,e){
   const p=projects.find(x=>x.id===id);
   if(!confirm(`Excluir projeto "${p.name}"?`))return;
   projects=projects.filter(x=>x.id!==id);
-  fbDeleteProject(id);
   if(currentProjectId===id){currentProjectId=null;currentPage="projects";}
   renderSidebarProjects();
   render();
@@ -1328,7 +1123,6 @@ function saveSettingsInline(){
   const p=getProject();if(!p)return;
   p.linearApiKey=document.getElementById("sch-apikey").value.trim();
   p.linearProjectId=document.getElementById("sch-projectid").value.trim();
-  fbSaveProject(p);
   fetchLinear();
 }
 async function fetchLinear(){
@@ -1391,7 +1185,6 @@ function saveMacro(){
     p.macros.push({id:newId,name,color,subetapas:[...macroModalSubs],tipo});
     p.expandedMacros.add(newId);p.expandedGantt.add(newId);
   }
-  fbSaveProject(p);
   closeMacroModal();render();
 }
 function deleteMacro(id){
@@ -1402,7 +1195,6 @@ function deleteMacro(id){
   p.macros=p.macros.filter(x=>x.id!==id);
   p.tasks=p.tasks.filter(t=>t.macroId!==id);
   p.expandedMacros.delete(id);p.expandedGantt.delete(id);
-  fbSaveProject(p);
   render();
 }
 function openAddSubModal(macroId){openMacroModal(macroId);setTimeout(()=>document.getElementById("new-sub-input").focus(),100);}
@@ -1413,7 +1205,6 @@ function openRenameSubModal(macroId,oldName){
   const m=p.macros.find(x=>x.id===macroId);if(!m)return;
   const idx=m.subetapas.indexOf(oldName);if(idx>=0)m.subetapas[idx]=newName.trim();
   p.tasks.forEach(t=>{if(t.macroId===macroId&&t.subetapa===oldName)t.subetapa=newName.trim();});
-  fbSaveProject(p);
   render();
 }
 function deleteSubetapa(macroId,subName){
@@ -1422,7 +1213,6 @@ function deleteSubetapa(macroId,subName){
   if(!confirm(`Excluir subetapa "${subName}"?${cnt>0?` ${cnt} tarefa(s) perderão a subetapa.`:""}`))return;
   const m=p.macros.find(x=>x.id===macroId);if(m)m.subetapas=m.subetapas.filter(s=>s!==subName);
   p.tasks.forEach(t=>{if(t.macroId===macroId&&t.subetapa===subName)t.subetapa="";});
-  fbSaveProject(p);
   render();
 }
 
@@ -1506,14 +1296,12 @@ function saveTask(){
   };
   const idx=p.tasks.findIndex(t=>t.id===id);
   if(idx>=0)p.tasks[idx]=task;else p.tasks.push(task);
-  fbSaveProject(p);
   closeModal();render();
 }
 function deleteTask(id){
   const p=getProject();if(!p)return;
   if(!confirm("Excluir esta tarefa?"))return;
   p.tasks=p.tasks.filter(t=>t.id!==id);
-  fbSaveProject(p);
   render();
 }
 
@@ -2060,7 +1848,6 @@ function saveAllocEmployee(editId){
   } else {
     allocEmployees.push({id:allocGenId(),nome,area});
   }
-  fbSaveAllocEmployees();
   closeAllocModal();
   render();
 }
@@ -2078,7 +1865,6 @@ function saveAllocProject(editId){
   } else {
     allocProjects.push({id:allocGenId(),nome,produto,etapa,dataInicio,descricao});
   }
-  fbSaveAllocProjects();
   closeAllocModal();
   render();
 }
@@ -2095,7 +1881,6 @@ function saveAllocVacancy(editId){
   } else {
     allocVacancies.push({id:allocGenId(),projetoId,funcao,funcionarioId,descricao});
   }
-  fbSaveAllocVacancies();
   closeAllocModal();
   render();
 }
@@ -2115,23 +1900,216 @@ function deleteAlloc(type, id){
   if(type==="employee"){
     allocEmployees=allocEmployees.filter(e=>e.id!==id);
     allocVacancies=allocVacancies.map(v=>v.funcionarioId===id?{...v,funcionarioId:""}:v);
-    fbSaveAllocEmployees();
-    fbSaveAllocVacancies();
   } else if(type==="project"){
     allocProjects=allocProjects.filter(p=>p.id!==id);
     allocVacancies=allocVacancies.filter(v=>v.projetoId!==id);
-    fbSaveAllocProjects();
-    fbSaveAllocVacancies();
   } else if(type==="vacancy"){
     allocVacancies=allocVacancies.filter(v=>v.id!==id);
-    fbSaveAllocVacancies();
   }
   render();
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-// Initial render is triggered by Firebase listeners after data loads.
-// _fbInitDone flag prevents render() before data is ready.
+// ─── FIREBASE CONFIG & SYNC ───────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAfIUpGDAQrpXiU1RQJbbngyJp5RZx91T8",
+  authDomain: "rivio-projetos.firebaseapp.com",
+  databaseURL: "https://rivio-projetos-default-rtdb.firebaseio.com",
+  projectId: "rivio-projetos",
+  storageBucket: "rivio-projetos.firebasestorage.app",
+  messagingSenderId: "549628278181",
+  appId: "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── Serialization helpers ──────────────────────────────────────────────────────
+// Projects use Set for expandedMacros/expandedGantt — must convert for Firebase
+function serializeProject(p) {
+  return {
+    ...p,
+    expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [],
+    expandedGantt:  p.expandedGantt  ? [...p.expandedGantt]  : [],
+  };
+}
+function deserializeProject(raw) {
+  return {
+    ...raw,
+    tasks:          raw.tasks          || [],
+    macros:         raw.macros         || [],
+    expandedMacros: new Set(raw.expandedMacros || []),
+    expandedGantt:  new Set(raw.expandedGantt  || []),
+    linearIssues:   raw.linearIssues   || [],
+    linearApiKey:   raw.linearApiKey   || "",
+    linearProjectId:raw.linearProjectId|| "",
+  };
+}
+
+// ── Save helpers — called after every mutation ─────────────────────────────────
+function fbSaveProjects() {
+  const payload = {};
+  projects.forEach(p => { payload[p.id] = serializeProject(p); });
+  db.ref("projects").set(payload).catch(e => console.error("FB projects write:", e));
+}
+function fbSaveEmployees() {
+  const payload = {};
+  allocEmployees.forEach(e => { payload[e.id] = e; });
+  db.ref("employees").set(payload).catch(e => console.error("FB employees write:", e));
+}
+function fbSaveAllocProjects() {
+  const payload = {};
+  allocProjects.forEach(p => { payload[p.id] = p; });
+  db.ref("allocProjects").set(payload).catch(e => console.error("FB allocProjects write:", e));
+}
+function fbSaveVacancies() {
+  const payload = {};
+  allocVacancies.forEach(v => { payload[v.id] = v; });
+  db.ref("vacancies").set(payload).catch(e => console.error("FB vacancies write:", e));
+}
+
+// ── Patch all mutation functions to also save to Firebase ─────────────────────
+// Projects
+const _origCreateProject = createProject;
+createProject = function() {
+  _origCreateProject();
+  fbSaveProjects();
+};
+const _origDeleteProject = deleteProject;
+deleteProject = function(id, e) {
+  _origDeleteProject(id, e);
+  fbSaveProjects();
+};
+const _origSaveTask = saveTask;
+saveTask = function() {
+  _origSaveTask();
+  fbSaveProjects();
+};
+const _origDeleteTask = deleteTask;
+deleteTask = function(id) {
+  _origDeleteTask(id);
+  fbSaveProjects();
+};
+const _origSaveMacro = saveMacro;
+saveMacro = function() {
+  _origSaveMacro();
+  fbSaveProjects();
+};
+const _origDeleteMacro = deleteMacro;
+deleteMacro = function(id) {
+  _origDeleteMacro(id);
+  fbSaveProjects();
+};
+
+// Alloc employees
+const _origSaveAllocEmployee = saveAllocEmployee;
+saveAllocEmployee = function(editId) {
+  _origSaveAllocEmployee(editId);
+  fbSaveEmployees();
+};
+
+// Alloc projects
+const _origSaveAllocProject = saveAllocProject;
+saveAllocProject = function(editId) {
+  _origSaveAllocProject(editId);
+  fbSaveAllocProjects();
+};
+
+// Vacancies
+const _origSaveAllocVacancy = saveAllocVacancy;
+saveAllocVacancy = function(editId) {
+  _origSaveAllocVacancy(editId);
+  fbSaveVacancies();
+};
+
+// deleteAlloc handles all three types
+const _origDeleteAlloc = deleteAlloc;
+deleteAlloc = function(type, id) {
+  _origDeleteAlloc(type, id);
+  if (type === "employee")  fbSaveEmployees();
+  if (type === "project")   { fbSaveAllocProjects(); fbSaveVacancies(); }
+  if (type === "vacancy")   fbSaveVacancies();
+};
+
+// Patch saveLinear if it exists (project linear config changes)
+if (typeof saveLinearConfig !== "undefined") {
+  const _origSaveLinearConfig = saveLinearConfig;
+  saveLinearConfig = function() {
+    _origSaveLinearConfig();
+    fbSaveProjects();
+  };
+}
+
+// ── Toast notification ─────────────────────────────────────────────────────────
+function showSyncToast(msg, color) {
+  let t = document.getElementById("fb-toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "fb-toast";
+    t.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;z-index:9999;pointer-events:none;transition:opacity .4s;box-shadow:0 4px 16px rgba(0,0,0,.18)";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.background = color || "#6366f1";
+  t.style.opacity = "1";
+  clearTimeout(t._to);
+  t._to = setTimeout(() => { t.style.opacity = "0"; }, 2500);
+}
+
+// ── Real-time listeners — update local state when Firebase changes ─────────────
+let _fbReady = 0; // count nodes loaded; render once all 4 arrive on first load
+let _fbFirstLoad = true;
+
+function _checkFirstLoad() {
+  _fbReady++;
+  if (_fbReady >= 4 && _fbFirstLoad) {
+    _fbFirstLoad = false;
+    renderSidebarProjects();
+    render();
+  }
+}
+
+db.ref("projects").on("value", snap => {
+  const raw = snap.val() || {};
+  projects = Object.values(raw).map(deserializeProject);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
+});
+
+db.ref("employees").on("value", snap => {
+  const raw = snap.val() || {};
+  allocEmployees = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+db.ref("allocProjects").on("value", snap => {
+  const raw = snap.val() || {};
+  allocProjects = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+db.ref("vacancies").on("value", snap => {
+  const raw = snap.val() || {};
+  allocVacancies = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+// ── Connection indicator ───────────────────────────────────────────────────────
+db.ref(".info/connected").on("value", snap => {
+  if (snap.val() === true) {
+    showSyncToast("🟢 Conectado ao Firebase", "#10b981");
+  } else {
+    showSyncToast("🔴 Sem conexão — alterações serão sincronizadas ao reconectar", "#ef4444");
+  }
+});
+
+// ── INIT — render placeholder while Firebase loads ────────────────────────────
+document.getElementById("content").innerHTML = `
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><style>@keyframes spin{to{transform:rotate(360deg)}}</style></svg>
+    <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
+  </div>`;
 </script>
 </body>
 </html>
