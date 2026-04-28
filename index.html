@@ -2138,6 +2138,28 @@ function showSyncToast(msg, color) {
 // ── Real-time listeners — update local state when Firebase changes ─────────────
 let _fbReady = 0; // count nodes loaded; render once all 4 arrive on first load
 let _fbFirstLoad = true;
+let _fbUserAction = false; // true durante ações do usuário (navigate/openProject)
+let _fbUserActionTimer = null;
+
+// Marca que uma ação do usuário está em curso — suprime re-render do Firebase
+// por 600ms para não sobrescrever a navegação intencional
+function _userActionGuard() {
+  _fbUserAction = true;
+  clearTimeout(_fbUserActionTimer);
+  _fbUserActionTimer = setTimeout(() => { _fbUserAction = false; }, 600);
+}
+
+// Intercepta navigate e openProject para ativar o guard
+const _origNavigate = navigate;
+navigate = function(page) {
+  _userActionGuard();
+  _origNavigate(page);
+};
+const _origOpenProject = openProject;
+openProject = function(id) {
+  _userActionGuard();
+  _origOpenProject(id);
+};
 
 function _checkFirstLoad() {
   _fbReady++;
@@ -2150,30 +2172,34 @@ function _checkFirstLoad() {
 
 db.ref("projects").on("value", snap => {
   const raw = snap.val() || {};
-  projects = Object.values(raw).map(deserializeProject);
+  // Preserve currentProjectId se o projeto ainda existir após atualização
+  const incoming = Object.values(raw).map(deserializeProject);
+  // Só atualiza projetos que vieram do Firebase — mantém Set() corretos
+  projects = incoming;
   _checkFirstLoad();
-  if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
+  if (!_fbFirstLoad && !_fbUserAction) { renderSidebarProjects(); render(); }
+  else if (!_fbFirstLoad && _fbUserAction) { renderSidebarProjects(); }
 });
 
 db.ref("employees").on("value", snap => {
   const raw = snap.val() || {};
   allocEmployees = Object.values(raw);
   _checkFirstLoad();
-  if (!_fbFirstLoad) render();
+  if (!_fbFirstLoad && !_fbUserAction) render();
 });
 
 db.ref("allocProjects").on("value", snap => {
   const raw = snap.val() || {};
   allocProjects = Object.values(raw);
   _checkFirstLoad();
-  if (!_fbFirstLoad) render();
+  if (!_fbFirstLoad && !_fbUserAction) render();
 });
 
 db.ref("vacancies").on("value", snap => {
   const raw = snap.val() || {};
   allocVacancies = Object.values(raw);
   _checkFirstLoad();
-  if (!_fbFirstLoad) render();
+  if (!_fbFirstLoad && !_fbUserAction) render();
 });
 
 // ── Connection indicator ───────────────────────────────────────────────────────
