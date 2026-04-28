@@ -1976,6 +1976,104 @@ function signOut() {
   auth.signOut();
 }
 
+// ── Seed data — usado para popular o Firebase na primeira vez (quando vazio) ──
+const SEED_EMPLOYEES = [
+  {id:"e1",nome:"Maria Clara",area:"Farmer"},{id:"e2",nome:"Henrique Azevedo",area:"Farmer"},
+  {id:"e3",nome:"Luís Felipe",area:"Farmer"},{id:"e4",nome:"Pedro Akra",area:"Farmer"},
+  {id:"e5",nome:"Brunna Dopper",area:"Auditoria"},{id:"e6",nome:"Raquel Baptista",area:"Auditoria"},
+  {id:"e7",nome:"Ana Baldovi",area:"Auditoria"},{id:"e8",nome:"Thaís Souza",area:"Auditoria"},
+  {id:"e9",nome:"Larissa Hildebrando",area:"Auditoria"},{id:"e10",nome:"Alessandra Ferreira",area:"Auditoria"},
+  {id:"e11",nome:"Rhavena Gomides",area:"Auditoria"},{id:"e12",nome:"Artur Giovanella",area:"Auditoria"},
+  {id:"e13",nome:"Verônica Rodrighero",area:"DS"},{id:"e14",nome:"João Victor",area:"DS"},
+  {id:"e15",nome:"Luís Lourenço",area:"DS"},{id:"e16",nome:"Bryan Muniz",area:"DS"},
+  {id:"e17",nome:"Elma Diniz",area:"DS"},{id:"e18",nome:"Bruno Mafra",area:"FDE"},
+  {id:"e19",nome:"Lucas Rota",area:"FDE"},{id:"e20",nome:"Amélio Junior",area:"Suporte"},
+  {id:"e21",nome:"William Rocha",area:"Suporte"},{id:"e22",nome:"Jaime Neto",area:"Suporte"},
+  {id:"e23",nome:"Gustavo",area:"Dev"},{id:"e24",nome:"Matheus Trevizan",area:"Dev"},
+];
+
+const SEED_ALLOC_PROJECTS = [
+  {id:"p1",nome:"Santa Catarina",produto:"Auditoria",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
+  {id:"p2",nome:"Moriah",produto:"Takeover",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
+  {id:"p3",nome:"Alberto Sabin",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
+  {id:"p4",nome:"Santa Júlia",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
+  {id:"p5",nome:"HCOR",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p6",nome:"Rede D'or SP",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p7",nome:"Rede D'or DF",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p8",nome:"Orion",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p9",nome:"AC Camargo",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p10",nome:"AACD",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p11",nome:"Santa Helena",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p12",nome:"São Camilo",produto:"Glosa Garantida",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p13",nome:"BH",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p14",nome:"Santa Rita",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p15",nome:"Agnus Dei",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p16",nome:"Incar",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
+  {id:"p17",nome:"Sírio",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p18",nome:"Sabará",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p19",nome:"HAOC",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p20",nome:"FSFX",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p21",nome:"Orizonti",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p22",nome:"São Lucas",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p23",nome:"Beep",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p24",nome:"Ang. Carón",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p25",nome:"Pró Saúde",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p26",nome:"Rafá",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
+  {id:"p27",nome:"Samuel Libânio",produto:"Takeover",etapa:"Geração de Valor",dataInicio:"",descricao:""},
+  {id:"p28",nome:"Einstein",produto:"Auditoria",etapa:"Expansão",dataInicio:"",descricao:""},
+];
+
+const SEED_VACANCIES = [
+  {id:"v1",projetoId:"p5",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v2",projetoId:"p6",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v3",projetoId:"p7",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v4",projetoId:"p8",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v5",projetoId:"p9",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v6",projetoId:"p10",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v7",projetoId:"p11",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v8",projetoId:"p12",funcao:"Farmer",funcionarioId:"e3",descricao:""},
+  {id:"v9",projetoId:"p13",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v10",projetoId:"p14",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v11",projetoId:"p15",funcao:"Farmer",funcionarioId:"e2",descricao:""},
+  {id:"v12",projetoId:"p16",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v13",projetoId:"p17",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v14",projetoId:"p18",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v15",projetoId:"p19",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v16",projetoId:"p20",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v17",projetoId:"p21",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v18",projetoId:"p22",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v19",projetoId:"p23",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v20",projetoId:"p24",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v21",projetoId:"p25",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v22",projetoId:"p26",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v23",projetoId:"p27",funcao:"Farmer",funcionarioId:"e4",descricao:""},
+  {id:"v24",projetoId:"p28",funcao:"Farmer",funcionarioId:"e1",descricao:""},
+  {id:"v25",projetoId:"p5",funcao:"Auditoria",funcionarioId:"",descricao:""},
+  {id:"v26",projetoId:"p6",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
+  {id:"v27",projetoId:"p7",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
+  {id:"v28",projetoId:"p9",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
+  {id:"v29",projetoId:"p10",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
+  {id:"v30",projetoId:"p11",funcao:"Auditoria",funcionarioId:"e6",descricao:""},
+  {id:"v31",projetoId:"p12",funcao:"Auditoria",funcionarioId:"e12",descricao:""},
+  {id:"v32",projetoId:"p17",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v33",projetoId:"p18",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v34",projetoId:"p19",funcao:"Suporte",funcionarioId:"e20",descricao:""},
+  {id:"v35",projetoId:"p23",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v36",projetoId:"p24",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v37",projetoId:"p25",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v38",projetoId:"p26",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v39",projetoId:"p27",funcao:"Suporte",funcionarioId:"e22",descricao:""},
+  {id:"v40",projetoId:"p28",funcao:"Suporte",funcionarioId:"e21",descricao:""},
+  {id:"v41",projetoId:"p12",funcao:"DS",funcionarioId:"e15",descricao:""},
+  {id:"v42",projetoId:"p9",funcao:"DS",funcionarioId:"e15",descricao:""},
+  {id:"v43",projetoId:"p10",funcao:"DS",funcionarioId:"e17",descricao:""},
+  {id:"v44",projetoId:"p11",funcao:"DS",funcionarioId:"e14",descricao:""},
+  {id:"v45",projetoId:"p12",funcao:"DS",funcionarioId:"e16",descricao:""},
+  {id:"v46",projetoId:"p13",funcao:"DS",funcionarioId:"e13",descricao:""},
+  {id:"v47",projetoId:"p11",funcao:"FDE",funcionarioId:"e18",descricao:""},
+  {id:"v48",projetoId:"p12",funcao:"FDE",funcionarioId:"e18",descricao:""},
+];
+
 let _fbReady = 0;
 let _fbFirstLoad = true;
 
@@ -2009,21 +2107,40 @@ function attachFirebaseListeners() {
   });
 
   db.ref("employees").on("value", snap => {
-    const raw = snap.val() || {};
+    const raw = snap.val();
+    if (!raw) {
+      // Firebase vazio — gravar dados iniciais e aguardar o listener disparar de novo
+      const payload = {};
+      SEED_EMPLOYEES.forEach(e => { payload[e.id] = e; });
+      db.ref("employees").set(payload);
+      return;
+    }
     allocEmployees = Object.values(raw);
     _checkFirstLoad();
     if (!_fbFirstLoad) render();
   });
 
   db.ref("allocProjects").on("value", snap => {
-    const raw = snap.val() || {};
+    const raw = snap.val();
+    if (!raw) {
+      const payload = {};
+      SEED_ALLOC_PROJECTS.forEach(p => { payload[p.id] = p; });
+      db.ref("allocProjects").set(payload);
+      return;
+    }
     allocProjects = Object.values(raw);
     _checkFirstLoad();
     if (!_fbFirstLoad) render();
   });
 
   db.ref("vacancies").on("value", snap => {
-    const raw = snap.val() || {};
+    const raw = snap.val();
+    if (!raw) {
+      const payload = {};
+      SEED_VACANCIES.forEach(v => { payload[v.id] = v; });
+      db.ref("vacancies").set(payload);
+      return;
+    }
     allocVacancies = Object.values(raw);
     _checkFirstLoad();
     if (!_fbFirstLoad) render();
