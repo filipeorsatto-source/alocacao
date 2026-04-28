@@ -7,7 +7,6 @@
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;background:#f4f5f7;color:#111}
@@ -128,23 +127,7 @@ tr:last-child td{border-bottom:none}
 .tab-btn{padding:10px 18px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .13s}
 .tab-btn.active{color:#6366f1;font-weight:700;border-bottom-color:#6366f1}
 .tab-btn:hover:not(.active){color:#374151}
-/* AUTH SCREEN */
-#auth-screen{position:fixed;inset:0;background:#f4f5f7;z-index:9999;display:flex;align-items:center;justify-content:center}
-.auth-card{background:#fff;border-radius:20px;border:1px solid #e5e7eb;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.08);text-align:center}
-.auth-logo{width:56px;height:56px;border-radius:14px;background:none;overflow:hidden;margin:0 auto 20px;border:1px solid #f3f4f6}
-.auth-logo img{width:100%;height:100%;object-fit:cover;border-radius:14px}
-.auth-title{font-size:22px;font-weight:800;color:#111;letter-spacing:-.02em;margin-bottom:6px}
-.auth-sub{font-size:13px;color:#6b7280;margin-bottom:32px}
-.btn-google{display:inline-flex;align-items:center;gap:12px;padding:12px 24px;background:#fff;color:#374151;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:all .15s;width:100%;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.btn-google:hover{background:#f9fafb;border-color:#d1d5db;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.btn-google svg{flex-shrink:0}
-.auth-footer{font-size:11px;color:#9ca3af;margin-top:24px}
-/* USER CHIP in sidebar */
-#user-chip{display:flex;align-items:center;gap:9px;padding:10px 14px;margin:8px 0 2px;border-radius:8px;background:#1c1c1e}
-#user-chip img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0}
-#user-chip-name{font-size:12px;font-weight:600;color:#e5e7eb;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#btn-logout{background:none;border:none;cursor:pointer;color:#6b7280;padding:2px;display:flex;align-items:center;flex-shrink:0;transition:color .12s}
-#btn-logout:hover{color:#ef4444}
+/* SCROLL */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px}
@@ -196,21 +179,7 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body>
-<!-- AUTH SCREEN -->
-<div id="auth-screen">
-  <div class="auth-card">
-    <div class="auth-logo"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" /></div>
-    <div class="auth-title">Gestão de Projetos</div>
-    <div class="auth-sub">Faça login com sua conta Google para continuar</div>
-    <button class="btn-google" onclick="signInWithGoogle()">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Entrar com Google
-    </button>
-    <div class="auth-footer">Apenas usuários autorizados podem acessar este sistema.</div>
-  </div>
-</div>
-
-<div id="app" style="display:none">
+<div id="app">
   <div id="sidebar">
     <div class="sb-brand">
       <div class="sb-logo" style="background:none;padding:0;overflow:hidden"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" style="width:32px;height:32px;object-fit:cover;border-radius:8px;display:block"/></div>
@@ -218,13 +187,6 @@ tr:last-child td{border-bottom:none}
         <div class="sb-title">Gestão de Projetos</div>
         <div class="sb-sub">Rivio</div>
       </div>
-    </div>
-    <div id="user-chip" style="display:none">
-      <img id="user-avatar" src="" alt=""/>
-      <span id="user-chip-name"></span>
-      <button id="btn-logout" onclick="signOut()" title="Sair">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
     </div>
     <div class="sb-nav" id="sb-nav">
       <button class="sb-btn active" onclick="navigate('projects')" data-page="projects">
@@ -1959,229 +1921,6 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const auth = firebase.auth();
-
-// ─── GOOGLE AUTH ──────────────────────────────────────────────────────────────
-const googleProvider = new firebase.auth.GoogleAuthProvider();
-
-function signInWithGoogle() {
-  auth.signInWithPopup(googleProvider).catch(err => {
-    console.error("Login error:", err);
-    alert("Erro ao fazer login: " + err.message);
-  });
-}
-
-function signOut() {
-  if (!confirm("Deseja sair da conta?")) return;
-  auth.signOut();
-}
-
-// ── Seed data — usado para popular o Firebase na primeira vez (quando vazio) ──
-const SEED_EMPLOYEES = [
-  {id:"e1",nome:"Maria Clara",area:"Farmer"},{id:"e2",nome:"Henrique Azevedo",area:"Farmer"},
-  {id:"e3",nome:"Luís Felipe",area:"Farmer"},{id:"e4",nome:"Pedro Akra",area:"Farmer"},
-  {id:"e5",nome:"Brunna Dopper",area:"Auditoria"},{id:"e6",nome:"Raquel Baptista",area:"Auditoria"},
-  {id:"e7",nome:"Ana Baldovi",area:"Auditoria"},{id:"e8",nome:"Thaís Souza",area:"Auditoria"},
-  {id:"e9",nome:"Larissa Hildebrando",area:"Auditoria"},{id:"e10",nome:"Alessandra Ferreira",area:"Auditoria"},
-  {id:"e11",nome:"Rhavena Gomides",area:"Auditoria"},{id:"e12",nome:"Artur Giovanella",area:"Auditoria"},
-  {id:"e13",nome:"Verônica Rodrighero",area:"DS"},{id:"e14",nome:"João Victor",area:"DS"},
-  {id:"e15",nome:"Luís Lourenço",area:"DS"},{id:"e16",nome:"Bryan Muniz",area:"DS"},
-  {id:"e17",nome:"Elma Diniz",area:"DS"},{id:"e18",nome:"Bruno Mafra",area:"FDE"},
-  {id:"e19",nome:"Lucas Rota",area:"FDE"},{id:"e20",nome:"Amélio Junior",area:"Suporte"},
-  {id:"e21",nome:"William Rocha",area:"Suporte"},{id:"e22",nome:"Jaime Neto",area:"Suporte"},
-  {id:"e23",nome:"Gustavo",area:"Dev"},{id:"e24",nome:"Matheus Trevizan",area:"Dev"},
-];
-
-const SEED_ALLOC_PROJECTS = [
-  {id:"p1",nome:"Santa Catarina",produto:"Auditoria",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
-  {id:"p2",nome:"Moriah",produto:"Takeover",etapa:"Negociação",dataInicio:"2026-08-01",descricao:""},
-  {id:"p3",nome:"Alberto Sabin",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
-  {id:"p4",nome:"Santa Júlia",produto:"Rivio 2.0",etapa:"Negociação",dataInicio:"2026-06-01",descricao:""},
-  {id:"p5",nome:"HCOR",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p6",nome:"Rede D'or SP",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p7",nome:"Rede D'or DF",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p8",nome:"Orion",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p9",nome:"AC Camargo",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p10",nome:"AACD",produto:"Auditoria",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p11",nome:"Santa Helena",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p12",nome:"São Camilo",produto:"Glosa Garantida",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p13",nome:"BH",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p14",nome:"Santa Rita",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p15",nome:"Agnus Dei",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p16",nome:"Incar",produto:"Rivio 2.0",etapa:"Implantação",dataInicio:"",descricao:""},
-  {id:"p17",nome:"Sírio",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p18",nome:"Sabará",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p19",nome:"HAOC",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p20",nome:"FSFX",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p21",nome:"Orizonti",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p22",nome:"São Lucas",produto:"Auditoria",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p23",nome:"Beep",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p24",nome:"Ang. Carón",produto:"Rivio 1.5",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p25",nome:"Pró Saúde",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p26",nome:"Rafá",produto:"Rivio 1.0",etapa:"Adoção",dataInicio:"",descricao:""},
-  {id:"p27",nome:"Samuel Libânio",produto:"Takeover",etapa:"Geração de Valor",dataInicio:"",descricao:""},
-  {id:"p28",nome:"Einstein",produto:"Auditoria",etapa:"Expansão",dataInicio:"",descricao:""},
-];
-
-const SEED_VACANCIES = [
-  {id:"v1",projetoId:"p5",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v2",projetoId:"p6",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v3",projetoId:"p7",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v4",projetoId:"p8",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v5",projetoId:"p9",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v6",projetoId:"p10",funcao:"Farmer",funcionarioId:"e2",descricao:""},
-  {id:"v7",projetoId:"p11",funcao:"Farmer",funcionarioId:"e2",descricao:""},
-  {id:"v8",projetoId:"p12",funcao:"Farmer",funcionarioId:"e3",descricao:""},
-  {id:"v9",projetoId:"p13",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v10",projetoId:"p14",funcao:"Farmer",funcionarioId:"e2",descricao:""},
-  {id:"v11",projetoId:"p15",funcao:"Farmer",funcionarioId:"e2",descricao:""},
-  {id:"v12",projetoId:"p16",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v13",projetoId:"p17",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v14",projetoId:"p18",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v15",projetoId:"p19",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v16",projetoId:"p20",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v17",projetoId:"p21",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v18",projetoId:"p22",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v19",projetoId:"p23",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v20",projetoId:"p24",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v21",projetoId:"p25",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v22",projetoId:"p26",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v23",projetoId:"p27",funcao:"Farmer",funcionarioId:"e4",descricao:""},
-  {id:"v24",projetoId:"p28",funcao:"Farmer",funcionarioId:"e1",descricao:""},
-  {id:"v25",projetoId:"p5",funcao:"Auditoria",funcionarioId:"",descricao:""},
-  {id:"v26",projetoId:"p6",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
-  {id:"v27",projetoId:"p7",funcao:"Auditoria",funcionarioId:"e8",descricao:""},
-  {id:"v28",projetoId:"p9",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
-  {id:"v29",projetoId:"p10",funcao:"Auditoria",funcionarioId:"e5",descricao:""},
-  {id:"v30",projetoId:"p11",funcao:"Auditoria",funcionarioId:"e6",descricao:""},
-  {id:"v31",projetoId:"p12",funcao:"Auditoria",funcionarioId:"e12",descricao:""},
-  {id:"v32",projetoId:"p17",funcao:"Suporte",funcionarioId:"e20",descricao:""},
-  {id:"v33",projetoId:"p18",funcao:"Suporte",funcionarioId:"e20",descricao:""},
-  {id:"v34",projetoId:"p19",funcao:"Suporte",funcionarioId:"e20",descricao:""},
-  {id:"v35",projetoId:"p23",funcao:"Suporte",funcionarioId:"e22",descricao:""},
-  {id:"v36",projetoId:"p24",funcao:"Suporte",funcionarioId:"e22",descricao:""},
-  {id:"v37",projetoId:"p25",funcao:"Suporte",funcionarioId:"e22",descricao:""},
-  {id:"v38",projetoId:"p26",funcao:"Suporte",funcionarioId:"e22",descricao:""},
-  {id:"v39",projetoId:"p27",funcao:"Suporte",funcionarioId:"e22",descricao:""},
-  {id:"v40",projetoId:"p28",funcao:"Suporte",funcionarioId:"e21",descricao:""},
-  {id:"v41",projetoId:"p12",funcao:"DS",funcionarioId:"e15",descricao:""},
-  {id:"v42",projetoId:"p9",funcao:"DS",funcionarioId:"e15",descricao:""},
-  {id:"v43",projetoId:"p10",funcao:"DS",funcionarioId:"e17",descricao:""},
-  {id:"v44",projetoId:"p11",funcao:"DS",funcionarioId:"e14",descricao:""},
-  {id:"v45",projetoId:"p12",funcao:"DS",funcionarioId:"e16",descricao:""},
-  {id:"v46",projetoId:"p13",funcao:"DS",funcionarioId:"e13",descricao:""},
-  {id:"v47",projetoId:"p11",funcao:"FDE",funcionarioId:"e18",descricao:""},
-  {id:"v48",projetoId:"p12",funcao:"FDE",funcionarioId:"e18",descricao:""},
-];
-
-const _fbLoaded = new Set();
-let _fbFirstLoad = true;
-
-function _checkFirstLoad(node) {
-  _fbLoaded.add(node);
-  if (_fbLoaded.size >= 4 && _fbFirstLoad) {
-    _fbFirstLoad = false;
-    renderSidebarProjects();
-    render();
-  }
-}
-
-let _fbListenersAttached = false;
-
-function attachFirebaseListeners() {
-  if (_fbListenersAttached) return;
-  _fbListenersAttached = true;
-
-  // Show loading placeholder inside app
-  document.getElementById("content").innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><style>@keyframes spin{to{transform:rotate(360deg)}}</style></svg>
-      <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
-    </div>`;
-
-  db.ref("projects").on("value", snap => {
-    const raw = snap.val() || {};
-    projects = Object.values(raw).map(deserializeProject);
-    _checkFirstLoad("projects");
-    if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
-  });
-
-  db.ref("employees").on("value", snap => {
-    const raw = snap.val();
-    if (!raw) {
-      // Firebase vazio — usar seed localmente já e gravar no Firebase
-      allocEmployees = [...SEED_EMPLOYEES];
-      const payload = {};
-      SEED_EMPLOYEES.forEach(e => { payload[e.id] = e; });
-      db.ref("employees").set(payload);
-      _checkFirstLoad("employees");
-      return;
-    }
-    allocEmployees = Object.values(raw);
-    _checkFirstLoad("employees");
-    if (!_fbFirstLoad) render();
-  });
-
-  db.ref("allocProjects").on("value", snap => {
-    const raw = snap.val();
-    if (!raw) {
-      allocProjects = [...SEED_ALLOC_PROJECTS];
-      const payload = {};
-      SEED_ALLOC_PROJECTS.forEach(p => { payload[p.id] = p; });
-      db.ref("allocProjects").set(payload);
-      _checkFirstLoad("allocProjects");
-      return;
-    }
-    allocProjects = Object.values(raw);
-    _checkFirstLoad("allocProjects");
-    if (!_fbFirstLoad) render();
-  });
-
-  db.ref("vacancies").on("value", snap => {
-    const raw = snap.val();
-    if (!raw) {
-      allocVacancies = [...SEED_VACANCIES];
-      const payload = {};
-      SEED_VACANCIES.forEach(v => { payload[v.id] = v; });
-      db.ref("vacancies").set(payload);
-      _checkFirstLoad("vacancies");
-      return;
-    }
-    allocVacancies = Object.values(raw);
-    _checkFirstLoad("vacancies");
-    if (!_fbFirstLoad) render();
-  });
-
-  db.ref(".info/connected").on("value", snap => {
-    if (snap.val() === true) {
-      showSyncToast("🟢 Conectado ao Firebase", "#10b981");
-    } else {
-      showSyncToast("🔴 Sem conexão — alterações serão sincronizadas ao reconectar", "#ef4444");
-    }
-  });
-}
-
-auth.onAuthStateChanged(user => {
-  const authScreen = document.getElementById("auth-screen");
-  const appEl = document.getElementById("app");
-  const userChip = document.getElementById("user-chip");
-  const userAvatar = document.getElementById("user-avatar");
-  const userChipName = document.getElementById("user-chip-name");
-
-  if (user) {
-    authScreen.style.display = "none";
-    appEl.style.display = "flex";
-    userChip.style.display = "flex";
-    userAvatar.src = user.photoURL || "";
-    userChipName.textContent = user.displayName || user.email;
-    attachFirebaseListeners();
-  } else {
-    authScreen.style.display = "flex";
-    appEl.style.display = "none";
-    userChip.style.display = "none";
-  }
-});
-
 
 // ── Serialization helpers ──────────────────────────────────────────────────────
 // Projects use Set for expandedMacros/expandedGantt — must convert for Firebase
@@ -2193,18 +1932,15 @@ function serializeProject(p) {
   };
 }
 function deserializeProject(raw) {
-  // Firebase salva arrays como objetos {0:{...},1:{...}} — converter de volta para array
-  const toArr = v => v ? (Array.isArray(v) ? v : Object.values(v)) : [];
-  const toNumSet = arr => new Set(toArr(arr).map(Number));
   return {
     ...raw,
-    tasks:          toArr(raw.tasks).map(t => ({ ...t, macroId: Number(t.macroId) })),
-    macros:         toArr(raw.macros).map(m => ({ ...m, id: Number(m.id) })),
-    expandedMacros: toNumSet(raw.expandedMacros),
-    expandedGantt:  toNumSet(raw.expandedGantt),
-    linearIssues:   toArr(raw.linearIssues),
-    linearApiKey:   raw.linearApiKey    || "",
-    linearProjectId:raw.linearProjectId || "",
+    tasks:          raw.tasks          || [],
+    macros:         raw.macros         || [],
+    expandedMacros: new Set(raw.expandedMacros || []),
+    expandedGantt:  new Set(raw.expandedGantt  || []),
+    linearIssues:   raw.linearIssues   || [],
+    linearApiKey:   raw.linearApiKey   || "",
+    linearProjectId:raw.linearProjectId|| "",
   };
 }
 
@@ -2318,7 +2054,62 @@ function showSyncToast(msg, color) {
   t._to = setTimeout(() => { t.style.opacity = "0"; }, 2500);
 }
 
+// ── Real-time listeners — update local state when Firebase changes ─────────────
+let _fbReady = 0; // count nodes loaded; render once all 4 arrive on first load
+let _fbFirstLoad = true;
 
+function _checkFirstLoad() {
+  _fbReady++;
+  if (_fbReady >= 4 && _fbFirstLoad) {
+    _fbFirstLoad = false;
+    renderSidebarProjects();
+    render();
+  }
+}
+
+db.ref("projects").on("value", snap => {
+  const raw = snap.val() || {};
+  projects = Object.values(raw).map(deserializeProject);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
+});
+
+db.ref("employees").on("value", snap => {
+  const raw = snap.val() || {};
+  allocEmployees = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+db.ref("allocProjects").on("value", snap => {
+  const raw = snap.val() || {};
+  allocProjects = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+db.ref("vacancies").on("value", snap => {
+  const raw = snap.val() || {};
+  allocVacancies = Object.values(raw);
+  _checkFirstLoad();
+  if (!_fbFirstLoad) render();
+});
+
+// ── Connection indicator ───────────────────────────────────────────────────────
+db.ref(".info/connected").on("value", snap => {
+  if (snap.val() === true) {
+    showSyncToast("🟢 Conectado ao Firebase", "#10b981");
+  } else {
+    showSyncToast("🔴 Sem conexão — alterações serão sincronizadas ao reconectar", "#ef4444");
+  }
+});
+
+// ── INIT — render placeholder while Firebase loads ────────────────────────────
+document.getElementById("content").innerHTML = `
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><style>@keyframes spin{to{transform:rotate(360deg)}}</style></svg>
+    <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
+  </div>`;
 </script>
 </body>
 </html>
