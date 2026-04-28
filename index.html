@@ -541,6 +541,9 @@ function createProject(){
   openProject(id);
 }
 function openProject(id){
+  // Garante que o projeto existe na lista atual antes de abrir
+  const proj = projects.find(p => p.id === id);
+  if (!proj) { console.warn("openProject: projeto não encontrado", id, projects.map(p=>p.id)); return; }
   currentProjectId=id;
   currentPage="schedule";
   renderSidebarProjects();
@@ -2102,6 +2105,11 @@ function attachFirebaseListeners() {
   db.ref("projects").on("value", snap => {
     const raw = snap.val() || {};
     projects = Object.values(raw).map(deserializeProject);
+    // Se o projeto atual sumiu (ex: deletado em outra aba), resetar navegação
+    if (currentProjectId && !projects.find(p => p.id === currentProjectId)) {
+      currentProjectId = null;
+      currentPage = "projects";
+    }
     _checkFirstLoad();
     if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
   });
@@ -2109,10 +2117,12 @@ function attachFirebaseListeners() {
   db.ref("employees").on("value", snap => {
     const raw = snap.val();
     if (!raw) {
-      // Firebase vazio — gravar dados iniciais e aguardar o listener disparar de novo
+      // Firebase vazio — usar seed localmente já e gravar no Firebase
+      allocEmployees = [...SEED_EMPLOYEES];
       const payload = {};
       SEED_EMPLOYEES.forEach(e => { payload[e.id] = e; });
       db.ref("employees").set(payload);
+      _checkFirstLoad();
       return;
     }
     allocEmployees = Object.values(raw);
@@ -2123,9 +2133,11 @@ function attachFirebaseListeners() {
   db.ref("allocProjects").on("value", snap => {
     const raw = snap.val();
     if (!raw) {
+      allocProjects = [...SEED_ALLOC_PROJECTS];
       const payload = {};
       SEED_ALLOC_PROJECTS.forEach(p => { payload[p.id] = p; });
       db.ref("allocProjects").set(payload);
+      _checkFirstLoad();
       return;
     }
     allocProjects = Object.values(raw);
@@ -2136,9 +2148,11 @@ function attachFirebaseListeners() {
   db.ref("vacancies").on("value", snap => {
     const raw = snap.val();
     if (!raw) {
+      allocVacancies = [...SEED_VACANCIES];
       const payload = {};
       SEED_VACANCIES.forEach(v => { payload[v.id] = v; });
       db.ref("vacancies").set(payload);
+      _checkFirstLoad();
       return;
     }
     allocVacancies = Object.values(raw);
@@ -2187,15 +2201,17 @@ function serializeProject(p) {
   };
 }
 function deserializeProject(raw) {
+  // macroIds são números — Firebase pode devolvê-los como strings, coerce para Number
+  const toNumSet = arr => new Set((arr || []).map(Number));
   return {
     ...raw,
-    tasks:          raw.tasks          || [],
-    macros:         raw.macros         || [],
-    expandedMacros: new Set(raw.expandedMacros || []),
-    expandedGantt:  new Set(raw.expandedGantt  || []),
-    linearIssues:   raw.linearIssues   || [],
-    linearApiKey:   raw.linearApiKey   || "",
-    linearProjectId:raw.linearProjectId|| "",
+    tasks:          (raw.tasks  || []).map(t => ({ ...t, macroId: Number(t.macroId) })),
+    macros:         (raw.macros || []).map(m => ({ ...m, id: Number(m.id) })),
+    expandedMacros: toNumSet(raw.expandedMacros),
+    expandedGantt:  toNumSet(raw.expandedGantt),
+    linearIssues:   raw.linearIssues    || [],
+    linearApiKey:   raw.linearApiKey    || "",
+    linearProjectId:raw.linearProjectId || "",
   };
 }
 
