@@ -541,9 +541,6 @@ function createProject(){
   openProject(id);
 }
 function openProject(id){
-  // Garante que o projeto existe na lista atual antes de abrir
-  const proj = projects.find(p => p.id === id);
-  if (!proj) { console.warn("openProject: projeto não encontrado", id, projects.map(p=>p.id)); return; }
   currentProjectId=id;
   currentPage="schedule";
   renderSidebarProjects();
@@ -2105,11 +2102,6 @@ function attachFirebaseListeners() {
   db.ref("projects").on("value", snap => {
     const raw = snap.val() || {};
     projects = Object.values(raw).map(deserializeProject);
-    // Se o projeto atual sumiu (ex: deletado em outra aba), resetar navegação
-    if (currentProjectId && !projects.find(p => p.id === currentProjectId)) {
-      currentProjectId = null;
-      currentPage = "projects";
-    }
     _checkFirstLoad("projects");
     if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
   });
@@ -2201,15 +2193,16 @@ function serializeProject(p) {
   };
 }
 function deserializeProject(raw) {
-  // macroIds são números — Firebase pode devolvê-los como strings, coerce para Number
-  const toNumSet = arr => new Set((arr || []).map(Number));
+  // Firebase salva arrays como objetos {0:{...},1:{...}} — converter de volta para array
+  const toArr = v => v ? (Array.isArray(v) ? v : Object.values(v)) : [];
+  const toNumSet = arr => new Set(toArr(arr).map(Number));
   return {
     ...raw,
-    tasks:          (raw.tasks  || []).map(t => ({ ...t, macroId: Number(t.macroId) })),
-    macros:         (raw.macros || []).map(m => ({ ...m, id: Number(m.id) })),
+    tasks:          toArr(raw.tasks).map(t => ({ ...t, macroId: Number(t.macroId) })),
+    macros:         toArr(raw.macros).map(m => ({ ...m, id: Number(m.id) })),
     expandedMacros: toNumSet(raw.expandedMacros),
     expandedGantt:  toNumSet(raw.expandedGantt),
-    linearIssues:   raw.linearIssues    || [],
+    linearIssues:   toArr(raw.linearIssues),
     linearApiKey:   raw.linearApiKey    || "",
     linearProjectId:raw.linearProjectId || "",
   };
