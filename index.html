@@ -2077,12 +2077,12 @@ const SEED_VACANCIES = [
   {id:"v48",projetoId:"p12",funcao:"FDE",funcionarioId:"e18",descricao:""},
 ];
 
-let _fbReady = 0;
+const _fbLoaded = new Set();
 let _fbFirstLoad = true;
 
-function _checkFirstLoad() {
-  _fbReady++;
-  if (_fbReady >= 4 && _fbFirstLoad) {
+function _checkFirstLoad(node) {
+  _fbLoaded.add(node);
+  if (_fbLoaded.size >= 4 && _fbFirstLoad) {
     _fbFirstLoad = false;
     renderSidebarProjects();
     render();
@@ -2110,7 +2110,7 @@ function attachFirebaseListeners() {
       currentProjectId = null;
       currentPage = "projects";
     }
-    _checkFirstLoad();
+    _checkFirstLoad("projects");
     if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
   });
 
@@ -2122,11 +2122,11 @@ function attachFirebaseListeners() {
       const payload = {};
       SEED_EMPLOYEES.forEach(e => { payload[e.id] = e; });
       db.ref("employees").set(payload);
-      _checkFirstLoad();
+      _checkFirstLoad("employees");
       return;
     }
     allocEmployees = Object.values(raw);
-    _checkFirstLoad();
+    _checkFirstLoad("employees");
     if (!_fbFirstLoad) render();
   });
 
@@ -2137,11 +2137,11 @@ function attachFirebaseListeners() {
       const payload = {};
       SEED_ALLOC_PROJECTS.forEach(p => { payload[p.id] = p; });
       db.ref("allocProjects").set(payload);
-      _checkFirstLoad();
+      _checkFirstLoad("allocProjects");
       return;
     }
     allocProjects = Object.values(raw);
-    _checkFirstLoad();
+    _checkFirstLoad("allocProjects");
     if (!_fbFirstLoad) render();
   });
 
@@ -2152,11 +2152,11 @@ function attachFirebaseListeners() {
       const payload = {};
       SEED_VACANCIES.forEach(v => { payload[v.id] = v; });
       db.ref("vacancies").set(payload);
-      _checkFirstLoad();
+      _checkFirstLoad("vacancies");
       return;
     }
     allocVacancies = Object.values(raw);
-    _checkFirstLoad();
+    _checkFirstLoad("vacancies");
     if (!_fbFirstLoad) render();
   });
 
