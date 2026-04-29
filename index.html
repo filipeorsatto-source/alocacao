@@ -580,9 +580,19 @@ function navigate(page){
 function render(){
   updateSidebarFooter();
   const c=document.getElementById("content");
+  if(!c) return; // guard: DOM not ready yet (e.g. auth screen still showing)
   if(currentPage==="projects") c.innerHTML=renderProjects();
   else if(currentPage==="dashboard") c.innerHTML=renderDashboard();
-  else if(currentPage==="schedule") c.innerHTML=renderSchedule();
+  else if(currentPage==="schedule"){
+    // Double-check project still exists before rendering
+    if(!currentProjectId || !projects.find(p=>p.id===currentProjectId)){
+      currentPage="projects";
+      currentProjectId=null;
+      c.innerHTML=renderProjects();
+    } else {
+      c.innerHTML=renderSchedule();
+    }
+  }
   else if(currentPage==="vagas") c.innerHTML=renderVagas();
   else if(currentPage==="cadastro") c.innerHTML=renderCadastro();
   else if(currentPage==="resumo") c.innerHTML=renderResumo();
@@ -2158,48 +2168,64 @@ function showSyncToast(msg, color) {
 // ── Real-time listeners (registered once per session) ─────────────────────────
 let _fbListenersActive = false;
 
+// Called every time Firebase pushes new data — must NOT destroy navigation state
+function _onFirebaseUpdate() {
+  // If we're on a project page, verify the project still exists after re-hydration
+  if (currentPage === "schedule" && currentProjectId) {
+    const stillExists = projects.some(p => p.id === currentProjectId);
+    if (!stillExists) {
+      currentProjectId = null;
+      currentPage = "projects";
+    }
+  }
+  renderSidebarProjects();
+  render();
+}
+
+// Debounce: avoid rendering in the middle of a multi-listener sync cycle
+let _renderDebounce = null;
+function _scheduleRender() {
+  clearTimeout(_renderDebounce);
+  _renderDebounce = setTimeout(_onFirebaseUpdate, 80);
+}
+
 function startFirebaseListeners() {
   if (_fbListenersActive) return;
   _fbListenersActive = true;
 
-  let _fbReady = 0;
-  let _fbFirstLoad = true;
+  // Track which nodes have loaded at least once
+  const _loaded = { projects: false, employees: false, allocProjects: false, vacancies: false };
 
-  function _checkFirstLoad() {
-    _fbReady++;
-    if (_fbReady >= 4 && _fbFirstLoad) {
-      _fbFirstLoad = false;
-      renderSidebarProjects();
-      render();
-    }
+  function _allLoaded() {
+    return _loaded.projects && _loaded.employees && _loaded.allocProjects && _loaded.vacancies;
   }
 
   db.ref("projects").on("value", snap => {
     const raw = snap.val() || {};
     projects = Object.values(raw).map(deserializeProject);
-    _checkFirstLoad();
-    if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
+    _loaded.projects = true;
+    if (_allLoaded()) _scheduleRender();
   });
 
   db.ref("employees").on("value", snap => {
     const raw = snap.val() || {};
     allocEmployees = Object.values(raw);
-    _checkFirstLoad();
-    if (!_fbFirstLoad) render();
+    _loaded.employees = true;
+    if (_allLoaded()) _scheduleRender();
   });
 
   db.ref("allocProjects").on("value", snap => {
     const raw = snap.val() || {};
     allocProjects = Object.values(raw);
-    _checkFirstLoad();
-    if (!_fbFirstLoad) render();
+    _loaded.allocProjects = true;
+    if (_allLoaded()) _scheduleRender();
   });
 
   db.ref("vacancies").on("value", snap => {
     const raw = snap.val() || {};
     allocVacancies = Object.values(raw);
-    _checkFirstLoad();
-    if (!_fbFirstLoad) render();
+    _loaded.vacancies = true;
+    if (_allLoaded()) _scheduleRender();
   });
 
   // Connection indicator
@@ -2211,7 +2237,7 @@ function startFirebaseListeners() {
     }
   });
 
-  // Show loading placeholder
+  // Show loading placeholder while first batch loads
   document.getElementById("content").innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><style>@keyframes spin{to{transform:rotate(360deg)}}</style></svg>
