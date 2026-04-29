@@ -178,45 +178,41 @@ tr:last-child td{border-bottom:none}
 .filter-row select,.filter-row input{padding:7px 10px;font-size:12px;width:auto;flex:0 0 auto}
 .filter-row .search-input{flex:1 1 180px;max-width:240px}
 
-/* ── AUTH SCREEN ──────────────────────────────────────────────────────────── */
+/* ── AUTH SCREEN ─────────────────────────────────────────────────────────── */
 #auth-screen{position:fixed;inset:0;z-index:9999;background:#0f0f10;display:flex;align-items:center;justify-content:center}
 #auth-screen.hidden{display:none}
 .auth-card{background:#18181b;border:1px solid #27272a;border-radius:20px;padding:48px 40px;width:100%;max-width:400px;text-align:center}
-.auth-logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;overflow:hidden}
+.auth-logo{width:52px;height:52px;border-radius:14px;overflow:hidden;margin:0 auto 20px}
 .auth-logo img{width:52px;height:52px;object-fit:cover;border-radius:14px;display:block}
 .auth-title{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.03em;margin-bottom:6px}
 .auth-sub{font-size:13px;color:#71717a;margin-bottom:32px;line-height:1.5}
-.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;background:#fff;color:#111;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:all .15s;letter-spacing:-.01em}
-.btn-google:hover{background:#f1f5f9;transform:translateY(-1px);box-shadow:0 4px 20px rgba(99,102,241,.25)}
-.btn-google:active{transform:translateY(0)}
-.btn-google svg{flex-shrink:0}
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;background:#fff;color:#111;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:all .15s}
+.btn-google:hover{background:#f1f5f9;box-shadow:0 4px 20px rgba(99,102,241,.2)}
 .auth-footer{font-size:11px;color:#52525b;margin-top:24px;line-height:1.6}
 
-/* ── USER MENU ────────────────────────────────────────────────────────────── */
-.user-menu{padding:12px 14px;border-top:1px solid #1c1c1e;display:flex;align-items:center;gap:9px;cursor:pointer;transition:background .13s;border-radius:0 0 0 0}
-.user-menu:hover{background:#1c1c1e}
-.user-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#6366f1}
-.user-avatar-placeholder{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
-.user-name{font-size:12px;font-weight:600;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+/* ── USER MENU ───────────────────────────────────────────────────────────── */
+.user-menu-wrap{padding:10px 12px;border-top:1px solid #1c1c1e;display:flex;align-items:center;gap:8px}
+.user-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.user-initial{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-size:11px;font-weight:600;color:#e5e7eb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .user-email{font-size:10px;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.signout-btn{background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;display:flex;align-items:center;flex-shrink:0;transition:color .12s;border-radius:4px}
-.signout-btn:hover{color:#ef4444}
+.btn-signout{background:none;border:none;cursor:pointer;color:#6b7280;padding:4px;display:flex;flex-shrink:0;transition:color .12s;border-radius:4px}
+.btn-signout:hover{color:#ef4444}
 </style>
 </head>
 <body>
-<!-- AUTH SCREEN -->
+<!-- AUTH SCREEN ─────────────────────────────────────────────────────────── -->
 <div id="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">
-      <img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" alt="Rivio"/>
-    </div>
+    <div class="auth-logo"><img src="data:image/jpeg;base64,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g5EXmA++X//EACgQAQABAwEIAgMBAQAAAAAAAAERACExYRAgQVFxgZGhsfAwcMHx0f/aAAgBAQABPyH9/S+Ljl4K+s/ystYCDs1lBsA7hSaLgcJ1KC/srRNGKfyMFCPJ2AqC7SoMJVt+qQA6ASrRuBQ0HNY2uBTL8LSKUT78KRuOyEJ+BQWXbzvHheFR0Deier5dV2BraMERgYTU2sw4amjm77Y9isegELRsPMbG7xr2OCesXerpXtZjJ4jubn4yR84i5xxBybHXGPUyUaClChC8CstxXw5D/HFNpKRSBcOjwTmb5z6miQfbNPQhluElrAH+7rMNkP3m05PEdFrg8GZ4B42NuqRuoe/QVlqYGLPpj2dv4yA2oEzDxNEAebHDLSUq8wdJNiz9DmQScgi25nWodLdqh9/gDubdTML+G8QGuRIF/wDvD2pTkflqPIlQ8tYmE2u69taqsuSX53PxmD1W2+j5H4ep3NvJmGzoc9g+fmmL1nYKaW9oqdSHr7u5+M+lCCfhNAyElwpPSmKXVERY1rA1KCamQNICiY6CNZ0o4F1Ee+Po78+gMAULclSnaFGpBNbmCQpsDKhQnG0+TR94kQXrO4kNsUmj5GxCFgFVqXBQAHYAJ2xeTIvBw/1SUtcrRICxxMKBSC2I9Fu/3RfDkZPq1V/cv//aAAwDAQACAAMAAAAQ8888888888888888888888888888888888888888888888888888888888888888884coQcYo4gY8884UoQ00oY88888scocU8ksQU8888888888888888888888888888888888888888888888888888888888888888888//EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQMBAT8QKf/EABQRAQAAAAAAAAAAAAAAAAAAAHD/2gAIAQIBAT8QKf/EACQQAQABAwQCAgMBAAAAAAAAAAERACFREDFBYYHwIHEwcJGh/9oACAEBAAE/EP38PG0iT4F0RROTuqgkgJIj9JRG7kKZiyBuO1SEyHfhLj90HOrl1xCCOSnzFRDMINxG0OhgFGAN2nciDgF1VsKOT5okwAG6vFFmaS0lRAAFV1UoEDg9oacAhKphRJEyhGEdvwERM4glGNhAC2CE2MGiZRQtMz3J70Qc2cKYxowgw2RONBXtsFXPCclOjwekqsiZCDB95laLr1iJSjkCMYVW6gBQDXJBIcPwkHKa5TM6XLAhLQkiqAPsI/bWxB0UsRoEFeiliSDSxZyU2ZS7SNQB8k7EhvAjIYS6QvyIWRDv4OlPKkMX3IMWyAJ2BiJTqK9tgo5jCwBxwySHFJo49RKj4wxfTTbS5LjCmJZ5HqxoSkokeB0usg5Erczb+wIPNBWt+bVlhMMDTZJrmO+A2AsAAAaPp/8AzhM3YdkCAskZtf3gefRP4K3pM/CK9tgo0+UoEyI8I0oi6C8igwxexmpcuMcucCXA0bFttQGPqB32138mVX/q1QcvX4flgdk9b0mfhFe2waT7Dhr6f/IO+aFOCaWKMOYEvDD1vlCVxAB3I+Ag5S92bLykO6HuldwINwGxuU/ucgEMc88IjSIAldipH+VOQ1cEBSE0tRdB2WZcJwCjPU/NAQAsTfhemoei4wmeZqSeoYmYmmNoLkSDZ04wpi5hcso7B4oiBHkCSIztXKMcEykyi6OghlQQASLSUdAlWMCdAVKAUrCHgAMECAUgmfKRGRQaQt8jFWZpGQjjviSGVlthWYHhprLXHBKryhd/cv8A/9k=" alt=""/></div>
     <div class="auth-title">Gestão de Projetos</div>
     <div class="auth-sub">Faça login com sua conta Google para<br>acessar o painel da Rivio.</div>
-    <button class="btn-google" onclick="signInWithGoogle()">
+    <button class="btn-google" onclick="authSignIn()">
       <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
       Entrar com Google
     </button>
-    <div class="auth-footer">Apenas usuários autorizados têm acesso.<br>Suas credenciais são gerenciadas pelo Google.</div>
+    <div class="auth-footer">Apenas usuários autorizados têm acesso.<br>Credenciais gerenciadas pelo Google.</div>
   </div>
 </div>
 
@@ -257,14 +253,14 @@ tr:last-child td{border-bottom:none}
       <div class="sb-prog-bar"><div class="sb-prog-fill" id="sb-prog-fill" style="width:0%"></div></div>
       <div class="sb-prog-pct" id="sb-prog-pct">0%</div>
     </div>
-    <div class="user-menu" id="user-menu" onclick="toggleSignOutMenu()" title="Sair da conta">
+    <div class="user-menu-wrap">
+      <div class="user-initial" id="user-initial">?</div>
       <img class="user-avatar" id="user-avatar" src="" alt="" style="display:none"/>
-      <div class="user-avatar-placeholder" id="user-avatar-placeholder">?</div>
-      <div style="flex:1;min-width:0">
-        <div class="user-name" id="user-name">Carregando...</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">—</div>
         <div class="user-email" id="user-email"></div>
       </div>
-      <button class="signout-btn" title="Sair" onclick="signOut(event)">
+      <button class="btn-signout" title="Sair" onclick="authSignOut()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
@@ -580,19 +576,9 @@ function navigate(page){
 function render(){
   updateSidebarFooter();
   const c=document.getElementById("content");
-  if(!c) return; // guard: DOM not ready yet (e.g. auth screen still showing)
   if(currentPage==="projects") c.innerHTML=renderProjects();
   else if(currentPage==="dashboard") c.innerHTML=renderDashboard();
-  else if(currentPage==="schedule"){
-    // Double-check project still exists before rendering
-    if(!currentProjectId || !projects.find(p=>p.id===currentProjectId)){
-      currentPage="projects";
-      currentProjectId=null;
-      c.innerHTML=renderProjects();
-    } else {
-      c.innerHTML=renderSchedule();
-    }
-  }
+  else if(currentPage==="schedule") c.innerHTML=renderSchedule();
   else if(currentPage==="vagas") c.innerHTML=renderVagas();
   else if(currentPage==="cadastro") c.innerHTML=renderCadastro();
   else if(currentPage==="resumo") c.innerHTML=renderResumo();
@@ -1971,54 +1957,6 @@ function deleteAlloc(type, id){
   render();
 }
 
-// ─── AUTHENTICATION ───────────────────────────────────────────────────────────
-// Optional: restrict to specific email domain(s). Leave empty to allow any Google account.
-// Example: const ALLOWED_DOMAINS = ["rivio.com.br", "suaempresa.com"];
-const ALLOWED_DOMAINS = [];
-
-function signInWithGoogle() {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
-  firebase.auth().signInWithPopup(provider).catch(err => {
-    console.error("Login error:", err);
-    alert("Erro ao fazer login: " + err.message);
-  });
-}
-
-function signOut(e) {
-  if (e) e.stopPropagation();
-  if (!confirm("Deseja sair da sua conta?")) return;
-  firebase.auth().signOut();
-}
-
-function toggleSignOutMenu() { /* reserved */ }
-
-function setUserUI(user) {
-  const nameEl        = document.getElementById("user-name");
-  const emailEl       = document.getElementById("user-email");
-  const avatarEl      = document.getElementById("user-avatar");
-  const placeholderEl = document.getElementById("user-avatar-placeholder");
-  if (!user) {
-    nameEl.textContent = "";
-    emailEl.textContent = "";
-    avatarEl.style.display = "none";
-    placeholderEl.style.display = "flex";
-    placeholderEl.textContent = "?";
-    return;
-  }
-  nameEl.textContent  = user.displayName || user.email;
-  emailEl.textContent = user.email;
-  if (user.photoURL) {
-    avatarEl.src = user.photoURL;
-    avatarEl.style.display = "block";
-    placeholderEl.style.display = "none";
-  } else {
-    avatarEl.style.display = "none";
-    placeholderEl.style.display = "flex";
-    placeholderEl.textContent = (user.displayName || user.email || "?")[0].toUpperCase();
-  }
-}
-
 // ─── FIREBASE CONFIG & SYNC ───────────────────────────────────────────────────
 const firebaseConfig = {
   apiKey: "AIzaSyAfIUpGDAQrpXiU1RQJbbngyJp5RZx91T8",
@@ -2030,32 +1968,59 @@ const firebaseConfig = {
   appId: "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
 };
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+const db   = firebase.database();
 const auth = firebase.auth();
 
+// ── Auth helpers ───────────────────────────────────────────────────────────────
+function authSignIn() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  firebase.auth().signInWithPopup(provider).catch(err => {
+    alert("Erro ao fazer login: " + err.message);
+  });
+}
+function authSignOut() {
+  if (!confirm("Deseja sair da sua conta?")) return;
+  // Reload the page on sign-out for a completely clean state
+  auth.signOut().then(() => window.location.reload());
+}
+function _setUserUI(user) {
+  const nameEl    = document.getElementById("user-name");
+  const emailEl   = document.getElementById("user-email");
+  const avatarEl  = document.getElementById("user-avatar");
+  const initEl    = document.getElementById("user-initial");
+  if (!user) return;
+  nameEl.textContent  = user.displayName || user.email;
+  emailEl.textContent = user.email;
+  if (user.photoURL) {
+    avatarEl.src = user.photoURL;
+    avatarEl.style.display = "block";
+    initEl.style.display   = "none";
+  } else {
+    initEl.textContent   = (user.displayName || user.email || "?")[0].toUpperCase();
+    initEl.style.display = "flex";
+    avatarEl.style.display = "none";
+  }
+}
+
 // ── Serialization helpers ──────────────────────────────────────────────────────
-// Projects use Set for expandedMacros/expandedGantt — must convert for Firebase
 function serializeProject(p) {
-  return {
-    ...p,
-    expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [],
-    expandedGantt:  p.expandedGantt  ? [...p.expandedGantt]  : [],
-  };
+  return { ...p, expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [], expandedGantt: p.expandedGantt ? [...p.expandedGantt] : [] };
 }
 function deserializeProject(raw) {
   return {
     ...raw,
-    tasks:          raw.tasks          || [],
-    macros:         raw.macros         || [],
-    expandedMacros: new Set(raw.expandedMacros || []),
-    expandedGantt:  new Set(raw.expandedGantt  || []),
-    linearIssues:   raw.linearIssues   || [],
-    linearApiKey:   raw.linearApiKey   || "",
-    linearProjectId:raw.linearProjectId|| "",
+    tasks:           raw.tasks           || [],
+    macros:          raw.macros          || [],
+    expandedMacros:  new Set(raw.expandedMacros || []),
+    expandedGantt:   new Set(raw.expandedGantt  || []),
+    linearIssues:    raw.linearIssues    || [],
+    linearApiKey:    raw.linearApiKey    || "",
+    linearProjectId: raw.linearProjectId || "",
   };
 }
 
-// ── Save helpers — called after every mutation ─────────────────────────────────
+// ── Firebase save helpers ──────────────────────────────────────────────────────
 function fbSaveProjects() {
   const payload = {};
   projects.forEach(p => { payload[p.id] = serializeProject(p); });
@@ -2078,75 +2043,34 @@ function fbSaveVacancies() {
 }
 
 // ── Patch all mutation functions to also save to Firebase ─────────────────────
-// Projects
 const _origCreateProject = createProject;
-createProject = function() {
-  _origCreateProject();
-  fbSaveProjects();
-};
+createProject = function() { _origCreateProject(); fbSaveProjects(); };
 const _origDeleteProject = deleteProject;
-deleteProject = function(id, e) {
-  _origDeleteProject(id, e);
-  fbSaveProjects();
-};
+deleteProject = function(id, e) { _origDeleteProject(id, e); fbSaveProjects(); };
 const _origSaveTask = saveTask;
-saveTask = function() {
-  _origSaveTask();
-  fbSaveProjects();
-};
+saveTask = function() { _origSaveTask(); fbSaveProjects(); };
 const _origDeleteTask = deleteTask;
-deleteTask = function(id) {
-  _origDeleteTask(id);
-  fbSaveProjects();
-};
+deleteTask = function(id) { _origDeleteTask(id); fbSaveProjects(); };
 const _origSaveMacro = saveMacro;
-saveMacro = function() {
-  _origSaveMacro();
-  fbSaveProjects();
-};
+saveMacro = function() { _origSaveMacro(); fbSaveProjects(); };
 const _origDeleteMacro = deleteMacro;
-deleteMacro = function(id) {
-  _origDeleteMacro(id);
-  fbSaveProjects();
-};
-
-// Alloc employees
+deleteMacro = function(id) { _origDeleteMacro(id); fbSaveProjects(); };
 const _origSaveAllocEmployee = saveAllocEmployee;
-saveAllocEmployee = function(editId) {
-  _origSaveAllocEmployee(editId);
-  fbSaveEmployees();
-};
-
-// Alloc projects
+saveAllocEmployee = function(editId) { _origSaveAllocEmployee(editId); fbSaveEmployees(); };
 const _origSaveAllocProject = saveAllocProject;
-saveAllocProject = function(editId) {
-  _origSaveAllocProject(editId);
-  fbSaveAllocProjects();
-};
-
-// Vacancies
+saveAllocProject = function(editId) { _origSaveAllocProject(editId); fbSaveAllocProjects(); };
 const _origSaveAllocVacancy = saveAllocVacancy;
-saveAllocVacancy = function(editId) {
-  _origSaveAllocVacancy(editId);
-  fbSaveVacancies();
-};
-
-// deleteAlloc handles all three types
+saveAllocVacancy = function(editId) { _origSaveAllocVacancy(editId); fbSaveVacancies(); };
 const _origDeleteAlloc = deleteAlloc;
 deleteAlloc = function(type, id) {
   _origDeleteAlloc(type, id);
-  if (type === "employee")  fbSaveEmployees();
-  if (type === "project")   { fbSaveAllocProjects(); fbSaveVacancies(); }
-  if (type === "vacancy")   fbSaveVacancies();
+  if (type === "employee") fbSaveEmployees();
+  if (type === "project")  { fbSaveAllocProjects(); fbSaveVacancies(); }
+  if (type === "vacancy")  fbSaveVacancies();
 };
-
-// Patch saveLinear if it exists (project linear config changes)
 if (typeof saveLinearConfig !== "undefined") {
   const _origSaveLinearConfig = saveLinearConfig;
-  saveLinearConfig = function() {
-    _origSaveLinearConfig();
-    fbSaveProjects();
-  };
+  saveLinearConfig = function() { _origSaveLinearConfig(); fbSaveProjects(); };
 }
 
 // ── Toast notification ─────────────────────────────────────────────────────────
@@ -2165,67 +2089,55 @@ function showSyncToast(msg, color) {
   t._to = setTimeout(() => { t.style.opacity = "0"; }, 2500);
 }
 
-// ── Real-time listeners (registered once per session) ─────────────────────────
-let _fbListenersActive = false;
-
-// Called every time Firebase pushes new data — must NOT destroy navigation state
-function _onFirebaseUpdate() {
-  // If we're on a project page, verify the project still exists after re-hydration
-  if (currentPage === "schedule" && currentProjectId) {
-    const stillExists = projects.some(p => p.id === currentProjectId);
-    if (!stillExists) {
-      currentProjectId = null;
-      currentPage = "projects";
-    }
-  }
-  renderSidebarProjects();
-  render();
-}
-
-// Debounce: avoid rendering in the middle of a multi-listener sync cycle
-let _renderDebounce = null;
-function _scheduleRender() {
-  clearTimeout(_renderDebounce);
-  _renderDebounce = setTimeout(_onFirebaseUpdate, 80);
-}
+// ── Real-time listeners — IDENTICAL to original logic, just wrapped in a function
+// _listenersStarted is NEVER reset after first call — prevents duplicate listeners
+// from auth state flickers or token refreshes.
+let _listenersStarted = false;
 
 function startFirebaseListeners() {
-  if (_fbListenersActive) return;
-  _fbListenersActive = true;
+  if (_listenersStarted) return;
+  _listenersStarted = true;
 
-  // Track which nodes have loaded at least once
-  const _loaded = { projects: false, employees: false, allocProjects: false, vacancies: false };
+  // These variables mirror exactly what was module-level in the original code
+  let _fbReady = 0;
+  let _fbFirstLoad = true;
 
-  function _allLoaded() {
-    return _loaded.projects && _loaded.employees && _loaded.allocProjects && _loaded.vacancies;
+  function _checkFirstLoad() {
+    _fbReady++;
+    if (_fbReady >= 4 && _fbFirstLoad) {
+      _fbFirstLoad = false;
+      renderSidebarProjects();
+      render();
+    }
   }
 
+  // ── The four listeners below are byte-for-byte identical to the original ──
   db.ref("projects").on("value", snap => {
     const raw = snap.val() || {};
     projects = Object.values(raw).map(deserializeProject);
-    _loaded.projects = true;
-    if (_allLoaded()) _scheduleRender();
+    _checkFirstLoad();
+    if (!_fbFirstLoad) { renderSidebarProjects(); render(); }
   });
 
   db.ref("employees").on("value", snap => {
     const raw = snap.val() || {};
     allocEmployees = Object.values(raw);
-    _loaded.employees = true;
-    if (_allLoaded()) _scheduleRender();
+    _checkFirstLoad();
+    if (!_fbFirstLoad) render();
   });
 
   db.ref("allocProjects").on("value", snap => {
     const raw = snap.val() || {};
     allocProjects = Object.values(raw);
-    _loaded.allocProjects = true;
-    if (_allLoaded()) _scheduleRender();
+    _checkFirstLoad();
+    if (!_fbFirstLoad) render();
   });
 
   db.ref("vacancies").on("value", snap => {
     const raw = snap.val() || {};
     allocVacancies = Object.values(raw);
-    _loaded.vacancies = true;
-    if (_allLoaded()) _scheduleRender();
+    _checkFirstLoad();
+    if (!_fbFirstLoad) render();
   });
 
   // Connection indicator
@@ -2237,7 +2149,7 @@ function startFirebaseListeners() {
     }
   });
 
-  // Show loading placeholder while first batch loads
+  // Show loading placeholder while first batch loads (same as original INIT block)
   document.getElementById("content").innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><style>@keyframes spin{to{transform:rotate(360deg)}}</style></svg>
@@ -2245,32 +2157,19 @@ function startFirebaseListeners() {
     </div>`;
 }
 
-// ── Auth state observer — controls everything ──────────────────────────────────
+// ── Auth state observer ────────────────────────────────────────────────────────
+// Fires once on load (with null or user) and once on sign-in.
+// After that it should NOT fire again unless the user explicitly signs out
+// (which triggers a page reload via authSignOut(), so this handler won't see it).
 auth.onAuthStateChanged(user => {
-  const authScreen = document.getElementById("auth-screen");
-
+  const screen = document.getElementById("auth-screen");
   if (!user) {
-    // Not signed in — show auth screen, hide app
-    authScreen.classList.remove("hidden");
-    setUserUI(null);
-    _fbListenersActive = false; // allow re-registration on next login
+    screen.classList.remove("hidden");
     return;
   }
-
-  // Domain restriction check
-  if (ALLOWED_DOMAINS.length > 0) {
-    const domain = user.email.split("@")[1] || "";
-    if (!ALLOWED_DOMAINS.includes(domain)) {
-      auth.signOut();
-      alert(`Acesso restrito. Apenas usuários dos domínios: ${ALLOWED_DOMAINS.join(", ")}`);
-      return;
-    }
-  }
-
-  // Signed in — hide auth screen, show app
-  authScreen.classList.add("hidden");
-  setUserUI(user);
-  startFirebaseListeners();
+  screen.classList.add("hidden");
+  _setUserUI(user);
+  startFirebaseListeners(); // safe to call multiple times — guarded by _listenersStarted
 });
 </script>
 </body>
