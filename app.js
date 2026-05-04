@@ -1354,6 +1354,20 @@ function saveTask(){
   const p=getProject();if(!p)return;
   const id=document.getElementById("f-id").value;
   const status=document.getElementById("f-status").value;
+  const subetapaVal=document.getElementById("f-sub").value;
+  // Subetapa é obrigatória — sem ela a tarefa fica órfã na visão Cronograma
+  // (renderSubBlock filtra por t.subetapa === sub).
+  if(!subetapaVal){
+    const macroId=Number(document.getElementById("f-macro").value);
+    const m=p.macros.find(x=>x.id===macroId);
+    if(!m || !m.subetapas || m.subetapas.length===0){
+      alert("Esta macroetapa não tem subetapas cadastradas. Crie uma subetapa antes de criar a tarefa.");
+    } else {
+      alert("Selecione uma subetapa para a tarefa.");
+      document.getElementById("f-sub").focus();
+    }
+    return;
+  }
   let completedAt=document.getElementById("f-completed").value || "";
   // Regras de auto-preenchimento da data de conclusão
   if(status === "Finalizado" && !completedAt) completedAt = todayStr();
@@ -1361,7 +1375,7 @@ function saveTask(){
   const task={
     id,name:document.getElementById("f-name").value.trim()||"Sem título",
     macroId:Number(document.getElementById("f-macro").value),
-    subetapa:document.getElementById("f-sub").value,
+    subetapa:subetapaVal,
     start:document.getElementById("f-start").value,
     end:document.getElementById("f-end").value,
     completedAt,
