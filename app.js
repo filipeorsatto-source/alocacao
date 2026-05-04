@@ -424,7 +424,7 @@ function renderDashboard(){
 
   // ── Apply task-level filters (Tipo de macroetapa + Período + Status) ───────
   // opts.ignoreStatus: keep status filter off (used for the per-status counts in table 1)
-  // opts.ignorePeriod: keep period filter off (used by burndown which spans full timeline)
+  // opts.ignorePeriod: keep period filter off (for views that need the full timeline)
   function filteredTasks(proj, opts={}){
     let tasks = proj.tasks;
     if(dashTipoFilter !== "Todos"){
@@ -545,6 +545,14 @@ function renderDashboard(){
     const ni    = dashValueOf(tasks.filter(t=>t.status==="Não Iniciado"));
     const late  = dashValueOf(tasks.filter(isOverdue));
     const pct   = total===0 ? 0 : Math.round((fin/total)*100);
+    // % no prazo: dentre as tarefas finalizadas, quantas tiveram completedAt <= end.
+    // Para tarefas legadas sem completedAt, usa end como fallback (conta como no prazo).
+    const finishedTasks = tasks.filter(t=>t.status==="Finalizado" && t.end);
+    const onTimeTasks   = finishedTasks.filter(t=>(t.completedAt || t.end) <= t.end);
+    const onTimeBase    = dashValueOf(finishedTasks);
+    const onTimeVal     = dashValueOf(onTimeTasks);
+    const onTimePct     = onTimeBase===0 ? null : Math.round((onTimeVal/onTimeBase)*100);
+    const onTimeColor   = onTimePct === null ? "#9ca3af" : onTimePct >= 80 ? "#15803d" : onTimePct >= 50 ? "#d97706" : "#ef4444";
     const meta  = getProjectMeta(p.name);
     return `<tr>
       <td>
@@ -560,6 +568,9 @@ function renderDashboard(){
       <td style="text-align:center"><span style="color:#6b7280;font-weight:600">${ni}</span></td>
       <td style="text-align:center"><span style="color:${late>0?"#ef4444":"#9ca3af"};font-weight:600">${late}</span></td>
       <td style="text-align:center;color:#374151;font-weight:600">${total}</td>
+      <td style="text-align:center;font-weight:700;color:${onTimeColor}" title="${onTimePct===null?'Nenhuma tarefa finalizada':`${onTimeVal} de ${onTimeBase} ${dashUnitLabel()} finalizadas dentro do prazo`}">
+        ${onTimePct===null ? `<span style="color:#d1d5db;font-weight:500">—</span>` : `${onTimePct}%`}
+      </td>
     </tr>`;
   }).join("");
 
@@ -574,9 +585,10 @@ function renderDashboard(){
           <th style="text-align:center">Não Iniciadas</th>
           <th style="text-align:center">Atrasadas</th>
           <th style="text-align:center">Total</th>
+          <th style="text-align:center" title="% das tarefas finalizadas cuja data de conclusão foi menor ou igual ao prazo planejado">% no prazo</th>
         </tr></thead>
         <tbody>
-          ${table1Rows || `<tr><td colspan="7" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhum projeto/tarefa atende aos filtros aplicados.</td></tr>`}
+          ${table1Rows || `<tr><td colspan="8" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhum projeto/tarefa atende aos filtros aplicados.</td></tr>`}
         </tbody>
       </table>
     </div>`;
@@ -798,82 +810,6 @@ function renderDashboard(){
     heatmap = `<div class="card" style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Sem dados para o heatmap nos filtros atuais.</div>`;
   }
 
-  // ── Burndown chart per project (small multiples) ───────────────────────────
-  // Planned cumulative = tasks with end <= sunday of week W, weighted by variavel
-  // Actual cumulative  = same but only Finalizado
-  function buildBurndown(p){
-    const tasks = filteredTasks(p, {ignorePeriod:true, ignoreStatus:true});
-    const taskMondays = tasks.map(t=>getMondayOfWeek(t.end)).filter(Boolean).sort();
-    if(taskMondays.length < 2) return null;
-    const startMon = taskMondays[0];
-    const endMon = taskMondays[taskMondays.length-1];
-    const weeks = [];
-    let cur = new Date(startMon+"T00:00:00");
-    const endD = new Date(endMon+"T00:00:00");
-    while(cur <= endD){ weeks.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+7); }
-    const total = dashValueOf(tasks);
-    if(!total) return null;
-    // Para "actual" usamos completedAt quando existir; caso contrário, fallback à data de fim
-    // (para tarefas legadas finalizadas antes do campo existir).
-    const completionDate = t => t.completedAt || t.end;
-    const series = weeks.map(w => {
-      const sundayDate = new Date(w+"T00:00:00"); sundayDate.setDate(sundayDate.getDate()+6);
-      const sundayIso = sundayDate.toISOString().slice(0,10);
-      const planned = dashValueOf(tasks.filter(t=>t.end && t.end <= sundayIso));
-      const actual  = dashValueOf(tasks.filter(t=>{
-        if(t.status !== "Finalizado") return false;
-        const cd = completionDate(t);
-        return cd && cd <= sundayIso;
-      }));
-      return { week:w, planned, actual };
-    });
-    return { weeks, series, total };
-  }
-  function burndownSvg(data){
-    const W=300, H=130, pad={t:8,r:8,b:24,l:32};
-    const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
-    const total = data.total;
-    const maxX = data.weeks.length - 1;
-    const xOf = i => pad.l + (maxX===0 ? innerW/2 : (i/maxX)*innerW);
-    const yOf = v => pad.t + innerH - (Math.max(0,v)/total)*innerH;
-    const idealLine = `M ${xOf(0)} ${yOf(total)} L ${xOf(maxX)} ${yOf(0)}`;
-    const plannedRem = data.series.map((s,i)=>`${i===0?'M':'L'} ${xOf(i)} ${yOf(total - s.planned)}`).join(' ');
-    const actualRem  = data.series.map((s,i)=>`${i===0?'M':'L'} ${xOf(i)} ${yOf(total - s.actual)}`).join(' ');
-    const step = Math.max(1, Math.ceil(data.weeks.length/5));
-    const xLabels = data.weeks.map((w,i)=>{
-      if(i!==0 && i!==maxX && i%step!==0) return '';
-      const [y,m,d]=w.split("-");
-      return `<text x="${xOf(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#9ca3af">${d}/${m}</text>`;
-    }).join('');
-    return `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
-        <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t+innerH}" stroke="#e5e7eb"/>
-        <line x1="${pad.l}" y1="${pad.t+innerH}" x2="${W-pad.r}" y2="${pad.t+innerH}" stroke="#e5e7eb"/>
-        <text x="${pad.l-4}" y="${pad.t+4}" text-anchor="end" font-size="9" fill="#9ca3af">${total}</text>
-        <text x="${pad.l-4}" y="${pad.t+innerH+3}" text-anchor="end" font-size="9" fill="#9ca3af">0</text>
-        <path d="${idealLine}" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
-        <path d="${plannedRem}" stroke="#6366f1" stroke-width="2" fill="none"/>
-        <path d="${actualRem}" stroke="#10b981" stroke-width="2" fill="none"/>
-        ${xLabels}
-      </svg>`;
-  }
-  const burndowns = filteredProjects.map(p => ({ p, b: buildBurndown(p) })).filter(x=>x.b);
-  const burndownSection = burndowns.length ? `
-    <div style="margin-bottom:8px;font-size:11px;color:#9ca3af;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
-      <span>Variável: <strong>${dashUnitLabel()}</strong></span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#9ca3af;border-top:2px dashed #9ca3af"></span>Ideal</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#6366f1"></span>Planejado restante</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#10b981"></span>Realizado restante</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;margin-bottom:24px">
-      ${burndowns.map(({p,b})=>`
-        <div class="card" style="padding:14px">
-          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.name}">${p.name}</div>
-          <div style="font-size:10px;color:#9ca3af;margin-bottom:6px">${b.weeks.length} semanas · total ${b.total} ${dashUnitLabel()}</div>
-          ${burndownSvg(b)}
-        </div>`).join("")}
-    </div>` : `<div class="card" style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Sem dados suficientes para burndown (mínimo 2 semanas distintas por projeto).</div>`;
-
   return `
     <h1 class="page-title">Dashboard</h1>
     <p class="page-sub">Visão consolidada de todos os projetos</p>
@@ -885,8 +821,6 @@ function renderDashboard(){
     ${table2}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 6px">Heatmap responsável × semana</h3>
     ${heatmap}
-    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:0 0 6px">Burndown por projeto</h3>
-    ${burndownSection}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">${chart3Title}</h3>
     ${chart3}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">Tarefas atrasadas</h3>
