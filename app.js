@@ -198,6 +198,7 @@ function render(){
   else if(currentPage==="vagas") c.innerHTML=renderVagas();
   else if(currentPage==="cadastro") c.innerHTML=renderCadastro();
   else if(currentPage==="resumo") c.innerHTML=renderResumo();
+  else if(currentPage==="base") c.innerHTML=renderBase();
 }
 function updateSidebarFooter(){
   const footer=document.getElementById("sb-footer");
@@ -358,6 +359,138 @@ function isTaskInPeriod(task){
 }
 
 // CSV export of the currently filtered tasks
+// ─── BASE DE DADOS (export-friendly flat view) ────────────────────────────────
+let baseSearchTerm = "";
+let baseSortKey    = "projeto";
+let baseSortDir    = "asc";
+
+function buildBaseRows(){
+  // Linha = uma tarefa. Mantém a ordem solicitada de colunas.
+  const rows = [];
+  projects.forEach(p => {
+    p.tasks.forEach(t => {
+      const macro = (p.macros.find(m => m.id === t.macroId) || {}).name || "";
+      rows.push({
+        projeto:    p.name,
+        macro,
+        subetapa:   t.subetapa || "",
+        tarefa:     t.name || "",
+        inicio:     t.start || "",
+        fim:        t.end || "",
+        conclusao:  t.completedAt || "",
+        esforco:    Number(t.effort) || 0,
+        responsavel:t.responsible || "",
+        status:     t.status || "",
+      });
+    });
+  });
+  return rows;
+}
+
+function baseSetSort(key){
+  if(baseSortKey === key) baseSortDir = baseSortDir === "asc" ? "desc" : "asc";
+  else { baseSortKey = key; baseSortDir = "asc"; }
+  render();
+}
+
+function baseSetSearch(v){ baseSearchTerm = (v||"").trim().toLowerCase(); render(); }
+
+function baseExport(){
+  const rows = buildBaseRows();
+  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim","Data Conclusão","Esforço","Responsável","Status"];
+  const matrix = [header, ...rows.map(r => [
+    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fim, r.conclusao, r.esforco, r.responsavel, r.status
+  ])];
+  const csv = matrix.map(line => line.map(cell => {
+    const s = String(cell ?? "");
+    return /[",;\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(";")).join("\n");
+  const blob = new Blob(["﻿"+csv], { type:"text/csv;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `base_de_dados_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderBase(){
+  const allRows = buildBaseRows();
+  // Filtro por busca livre (qualquer campo)
+  const term = baseSearchTerm;
+  const rows = !term ? allRows : allRows.filter(r =>
+    Object.values(r).some(v => String(v).toLowerCase().includes(term))
+  );
+  // Ordenação
+  rows.sort((a,b) => {
+    const va = a[baseSortKey] ?? "";
+    const vb = b[baseSortKey] ?? "";
+    let cmp;
+    if(typeof va === "number" && typeof vb === "number") cmp = va - vb;
+    else cmp = String(va).localeCompare(String(vb), "pt-BR", {sensitivity:"base"});
+    return baseSortDir === "asc" ? cmp : -cmp;
+  });
+
+  const cols = [
+    { key:"projeto",     label:"Projeto" },
+    { key:"macro",       label:"Macro Etapa" },
+    { key:"subetapa",    label:"Subetapa" },
+    { key:"tarefa",      label:"Tarefa" },
+    { key:"inicio",      label:"Data Início",    fmt:fmtDate },
+    { key:"fim",         label:"Data Fim",       fmt:fmtDate },
+    { key:"conclusao",   label:"Data Conclusão", fmt:fmtDate },
+    { key:"esforco",     label:"Esforço",        align:"center" },
+    { key:"responsavel", label:"Responsável" },
+    { key:"status",      label:"Status" },
+  ];
+
+  const arrow = k => baseSortKey === k ? (baseSortDir === "asc" ? " ↑" : " ↓") : "";
+  const headerHtml = cols.map(c => `
+    <th onclick="baseSetSort('${c.key}')"
+        style="text-align:${c.align||'left'};padding:9px 12px;font-size:11px;font-weight:700;color:#374151;background:#f9fafb;border-bottom:1px solid #e5e7eb;cursor:pointer;white-space:nowrap;user-select:none;position:sticky;top:0;z-index:1">
+      ${c.label}<span style="color:#6366f1">${arrow(c.key)}</span>
+    </th>`).join("");
+
+  const bodyHtml = rows.length === 0
+    ? `<tr><td colspan="${cols.length}" style="text-align:center;padding:40px;color:#9ca3af;font-size:13px">${term ? "Nenhuma tarefa corresponde à busca." : "Nenhuma tarefa cadastrada ainda."}</td></tr>`
+    : rows.map(r => `
+        <tr style="border-bottom:1px solid #f3f4f6">
+          ${cols.map(c => {
+            const raw = r[c.key];
+            const val = c.fmt ? c.fmt(raw) : raw;
+            const cellStyle = `padding:8px 12px;font-size:12px;color:#374151;text-align:${c.align||'left'};white-space:nowrap;${c.key==='tarefa' || c.key==='projeto' ? 'max-width:280px;overflow:hidden;text-overflow:ellipsis' : ''}`;
+            return `<td style="${cellStyle}" title="${String(val ?? '').replace(/"/g,'&quot;')}">${val !== "" && val != null ? val : `<span style="color:#d1d5db">—</span>`}</td>`;
+          }).join("")}
+        </tr>`).join("");
+
+  return `
+    <h1 class="page-title">Base de Dados</h1>
+    <p class="page-sub">Visão tabular completa de todas as tarefas para exportação.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <input type="text" placeholder="🔎 Buscar em qualquer coluna..." value="${baseSearchTerm.replace(/"/g,'&quot;')}"
+        oninput="baseSetSearch(this.value)"
+        style="flex:1;min-width:240px;max-width:420px;padding:8px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;font-size:13px;font-family:inherit"/>
+      <span style="font-size:12px;color:#6b7280">
+        ${rows.length} de ${allRows.length} tarefa${allRows.length===1?"":"s"}${term?` (filtrado)`:""}
+      </span>
+      <div style="flex:1"></div>
+      <button onclick="baseExport()"
+        style="padding:8px 16px;border-radius:6px;border:1px solid #16a34a;background:#16a34a;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">
+        ⬇ Exportar para Excel
+      </button>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow:auto;max-height:calc(100vh - 220px)">
+      <table style="width:100%;border-collapse:collapse;min-width:max-content">
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    </div>
+    <p style="font-size:11px;color:#9ca3af;margin-top:10px">
+      Arquivo gerado: CSV com codificação UTF-8 BOM e separador <code>;</code>, abre direto no Excel-PT. A exportação inclui <strong>todas</strong> as tarefas (a busca não filtra o arquivo).
+    </p>
+  `;
+}
+
 function dashExportCsv(){
   if(!projects.length) return;
   const filteredProjs = projects.filter(p => {
@@ -725,6 +858,52 @@ function renderDashboard(){
       </div>
     </div>`;
 
+  // ── Chart 4: % no prazo por responsável ────────────────────────────────────
+  // Numerador: tarefas finalizadas com (completedAt || end) <= end
+  // Denominador: tarefas finalizadas (com data de fim preenchida)
+  // Tarefas legadas finalizadas sem completedAt caem no fallback end<=end (no prazo).
+  const onTimeByResp = {};
+  filteredProjects.forEach(p => {
+    filteredTasks(p, {ignoreStatus:true}).forEach(t => {
+      if(t.status !== "Finalizado" || !t.end || !t.responsible) return;
+      const r = t.responsible;
+      if(!onTimeByResp[r]) onTimeByResp[r] = { onTime:0, total:0 };
+      const inc = dashVariavel === "esforco" ? (Number(t.effort)||0) : 1;
+      onTimeByResp[r].total += inc;
+      if((t.completedAt || t.end) <= t.end) onTimeByResp[r].onTime += inc;
+    });
+  });
+  const onTimeRespData = Object.entries(onTimeByResp)
+    .filter(([_,v]) => v.total > 0)
+    .map(([resp, v]) => ({
+      resp,
+      onTime: v.onTime,
+      total: v.total,
+      pct: Math.round((v.onTime / v.total) * 100)
+    }))
+    .sort((a,b) => b.pct - a.pct);
+
+  const chart4 = onTimeRespData.length === 0 ? `<div class="card" style="padding:30px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Nenhuma tarefa finalizada por responsável nos filtros aplicados.</div>` : `
+    <div class="card" style="padding:20px;margin-bottom:24px">
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:14px">Considera apenas tarefas <strong>finalizadas</strong>. No prazo = data de conclusão ≤ prazo planejado. Variável: <strong>${dashUnitLabel()}</strong>.</div>
+      <div style="display:grid;gap:10px">
+        ${onTimeRespData.map(d => {
+          const color = d.pct >= 80 ? "#10b981" : d.pct >= 50 ? "#f59e0b" : "#ef4444";
+          return `
+            <div style="display:grid;grid-template-columns:140px 1fr 80px;align-items:center;gap:12px">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                <div class="avatar" style="flex-shrink:0">${initials(d.resp)}</div>
+                <span style="font-size:12px;color:#374151;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.resp}</span>
+              </div>
+              <div style="height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden;position:relative" title="${d.onTime} de ${d.total} ${dashUnitLabel()} no prazo">
+                <div style="height:100%;width:${d.pct}%;background:${color};border-radius:4px;transition:width .2s"></div>
+              </div>
+              <span style="font-size:12px;font-weight:700;color:${color};text-align:right">${d.pct}%<span style="font-weight:500;color:#9ca3af;font-size:10px;margin-left:3px">(${d.onTime}/${d.total})</span></span>
+            </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+
   // ── Lista completa de tarefas atrasadas (uses all task-level filters) ──────
   const todayD = new Date(); todayD.setHours(0,0,0,0);
   const overdueList = [];
@@ -823,6 +1002,8 @@ function renderDashboard(){
     ${heatmap}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">${chart3Title}</h3>
     ${chart3}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">% no prazo por responsável</h3>
+    ${chart4}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">Tarefas atrasadas</h3>
     ${overdueCard}
   `;
@@ -2129,7 +2310,6 @@ deleteProject = function(id, e) {
 };
 const _origSaveTask = saveTask;
 saveTask = function() {
-  _origSaveTask();
   fbSaveProjects();
 };
 const _origDeleteTask = deleteTask;
@@ -2316,61 +2496,3 @@ auth.onAuthStateChanged(user => {
   setLoadingState();
   startFirebaseSync();
 });
-
-// ── AUTH + INIT ───────────────────────────────────────────────────────────────
-function setLoadingState(){
-  document.getElementById("content").innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-      <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
-    </div>`;
-}
-
-function setupAuthUI(){
-  const loginBtn = document.getElementById("google-login-btn");
-  const logoutBtn = document.getElementById("logout-btn");
-  const errorEl = document.getElementById("auth-error");
-  if (loginBtn) {
-    loginBtn.addEventListener("click", async () => {
-      errorEl.textContent = "";
-      loginBtn.disabled = true;
-      loginBtn.textContent = "Entrando...";
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
-      } catch (err) {
-        console.error("Google sign-in error:", err);
-        errorEl.textContent = "Não foi possível entrar com Google. Verifique se o provedor está habilitado no Firebase.";
-      } finally {
-        loginBtn.disabled = false;
-        loginBtn.innerHTML = '<span class="google-icon">G</span> Entrar com Google';
-      }
-    });
-  }
-  if (logoutBtn) logoutBtn.addEventListener("click", () => auth.signOut());
-}
-
-setupAuthUI();
-setLoadingState();
-
-auth.onAuthStateChanged(user => {
-  const authScreen = document.getElementById("auth-screen");
-  const app = document.getElementById("app");
-  const userbar = document.getElementById("auth-userbar");
-  const userName = document.getElementById("auth-user-name");
-
-  if (!user) {
-    authScreen?.classList.remove("hidden");
-    if (app) app.style.visibility = "hidden";
-    if (userbar) userbar.style.display = "none";
-    return;
-  }
-
-  authScreen?.classList.add("hidden");
-  if (app) app.style.visibility = "visible";
-  if (userbar) userbar.style.display = "flex";
-  if (userName) userName.textContent = user.displayName || user.email || "Usuário";
-  setLoadingState();
-  startFirebaseSync();
-});
-
