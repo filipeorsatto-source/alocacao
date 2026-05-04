@@ -254,7 +254,39 @@ const priColors={0:"priority-none",1:"priority-urgent",2:"priority-high",3:"prio
 const priLabels={0:"Sem prioridade",1:"Urgente",2:"Alta",3:"Média",4:"Baixa"};
 
 // Dashboard filter state
-let dashTipoFilter = "Todos"; // "Todos" | "Implantação" | "Sustentação"
+let dashTipoFilter    = "Todos"; // "Todos" | "Implantação" | "Sustentação"
+let dashStatusFilter  = new Set(); // empty = todos
+let dashProdutoFilter = new Set();
+let dashEtapaFilter   = new Set();
+let dashVariavel      = "count";   // "count" | "esforco"
+
+function toggleDashStatus(v){if(v==="__clear__")dashStatusFilter.clear();else{if(dashStatusFilter.has(v))dashStatusFilter.delete(v);else dashStatusFilter.add(v);}render();}
+function toggleDashProduto(v){if(v==="__clear__")dashProdutoFilter.clear();else{if(dashProdutoFilter.has(v))dashProdutoFilter.delete(v);else dashProdutoFilter.add(v);}render();}
+function toggleDashEtapa(v){if(v==="__clear__")dashEtapaFilter.clear();else{if(dashEtapaFilter.has(v))dashEtapaFilter.delete(v);else dashEtapaFilter.add(v);}render();}
+
+// Look up produto/etapa from the alloc projects table by matching the implant project name
+function getProjectMeta(projName){
+  const ap = allocProjects.find(a => a.nome === projName);
+  return { produto: ap?.produto || "—", etapa: ap?.etapa || "—" };
+}
+
+// Returns the ISO date (YYYY-MM-DD) of the Monday of the week that contains dateStr
+function getMondayOfWeek(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr+"T00:00:00");
+  const day = d.getDay();                    // 0=sun, 1=mon, ..., 6=sat
+  const diff = day === 0 ? -6 : 1 - day;     // Sun -> -6, Mon -> 0, Tue -> -1, ...
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+
+// Aggregate function honoring the variable selector
+function dashValueOf(tasks){
+  return dashVariavel === "esforco"
+    ? tasks.reduce((s,t)=>s+(Number(t.effort)||0),0)
+    : tasks.length;
+}
+function dashUnitLabel(){ return dashVariavel === "esforco" ? "esforço" : "tarefas"; }
 
 function renderDashboard(){
   if(!projects.length) return `
@@ -266,23 +298,126 @@ function renderDashboard(){
       <p style="font-size:12px">Crie um projeto na aba <a href="#" onclick="navigate('projects')" style="color:#6366f1">Projetos</a> para ver o dashboard.</p>
     </div>`;
 
-  // Helper: filter tasks of a project by tipo das macroetapas
-  function filteredTasks(proj){
-    if(dashTipoFilter==="Todos") return proj.tasks;
-    const macroIds = new Set(proj.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
-    return proj.tasks.filter(t=>macroIds.has(t.macroId));
+  // ── Apply project-level filters (Produto / Etapa) ─────────────────────────
+  const filteredProjects = projects.filter(p => {
+    const meta = getProjectMeta(p.name);
+    if(dashProdutoFilter.size && !dashProdutoFilter.has(meta.produto)) return false;
+    if(dashEtapaFilter.size   && !dashEtapaFilter.has(meta.etapa))     return false;
+    return true;
+  });
+
+  // ── Apply task-level filters (Tipo de macroetapa + Status) ─────────────────
+  // opts.ignoreStatus: keep status filter off (used for the per-status counts in table 1)
+  function filteredTasks(proj, opts={}){
+    let tasks = proj.tasks;
+    if(dashTipoFilter !== "Todos"){
+      const macroIds = new Set(proj.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
+      tasks = tasks.filter(t=>macroIds.has(t.macroId));
+    }
+    if(!opts.ignoreStatus && dashStatusFilter.size){
+      tasks = tasks.filter(t => {
+        const eff = isOverdue(t) ? "Atrasado" : t.status;
+        return dashStatusFilter.has(eff);
+      });
+    }
+    return tasks;
   }
 
-  // ── Filter bar ─────────────────────────────────────────────────────────────
-  const filterBar = `
-    <div style="display:flex;gap:8px;margin-bottom:20px;align-items:center">
-      <span style="font-size:12px;font-weight:600;color:#6b7280;margin-right:4px">Filtrar por tipo:</span>
-      ${["Todos","Implantação","Sustentação"].map(opt=>`
-        <button onclick="dashTipoFilter='${opt}';render()" style="padding:6px 16px;border-radius:20px;border:1px solid ${dashTipoFilter===opt?'#6366f1':'#e5e7eb'};background:${dashTipoFilter===opt?'#eef2ff':'#fff'};color:${dashTipoFilter===opt?'#6366f1':'#6b7280'};font-size:12px;font-weight:${dashTipoFilter===opt?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${opt==='Implantação'?'📋 ':opt==='Sustentação'?'🔧 ':''}${opt}</button>
-      `).join("")}
+  // ── Available filter options (derived from data) ───────────────────────────
+  const STATUS_OPTS  = ["Não Iniciado","Em Execução","Finalizado","Atrasado"];
+  const allProdutos  = [...new Set(projects.map(p=>getProjectMeta(p.name).produto))].filter(Boolean).sort();
+  const allEtapas    = [...new Set(projects.map(p=>getProjectMeta(p.name).etapa))].filter(Boolean).sort();
+
+  // Reusable chip-set renderer for multi-select filters
+  const chipMulti = (set, options, fnName, label, prefixIcon) => `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">${label}:</span>
+      ${options.map(opt=>{
+        const v  = typeof opt === "string" ? opt : opt.value;
+        const l  = typeof opt === "string" ? opt : opt.label;
+        const on = set.has(v);
+        return `<button onclick="${fnName}('${v.replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${prefixIcon?prefixIcon(v):""}${l}</button>`;
+      }).join("")}
+      ${set.size>0?`<button onclick="${fnName}('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit">✕ limpar</button>`:""}
     </div>`;
 
-  // ── Table 1: Progress summary ───────────────────────────────────────────────
+  const tipoChips = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Tipo:</span>
+      ${["Todos","Implantação","Sustentação"].map(opt=>{
+        const on = dashTipoFilter===opt;
+        const ic = opt==='Implantação'?'📋 ':opt==='Sustentação'?'🔧 ':'';
+        return `<button onclick="dashTipoFilter='${opt}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${ic}${opt}</button>`;
+      }).join("")}
+    </div>`;
+
+  const variavelChips = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Variável:</span>
+      ${[{v:"count",l:"Qtd. de tarefas"},{v:"esforco",l:"Somatório de esforço"}].map(o=>{
+        const on = dashVariavel===o.v;
+        return `<button onclick="dashVariavel='${o.v}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${o.l}</button>`;
+      }).join("")}
+    </div>`;
+
+  const filterBar = `
+    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:grid;gap:8px">
+      ${tipoChips}
+      ${chipMulti(dashStatusFilter,  STATUS_OPTS,  "toggleDashStatus",  "Status")}
+      ${chipMulti(dashProdutoFilter, allProdutos,  "toggleDashProduto", "Produto")}
+      ${chipMulti(dashEtapaFilter,   allEtapas,    "toggleDashEtapa",   "Etapa")}
+      ${variavelChips}
+    </div>`;
+
+  // ── KPI cards (respect all filters) ────────────────────────────────────────
+  const allFilteredTasks = filteredProjects.flatMap(p => filteredTasks(p));
+  const kpiTotalProj  = filteredProjects.length;
+  const kpiTotalTasks = allFilteredTasks.length;
+  const kpiEsforco    = allFilteredTasks.reduce((s,t)=>s+(Number(t.effort)||0),0);
+  const kpiAtrasadas  = allFilteredTasks.filter(isOverdue).length;
+  const kpiFinaliz    = allFilteredTasks.filter(t=>t.status==="Finalizado").length;
+  const kpiPctProgress= kpiTotalTasks ? Math.round((kpiFinaliz/kpiTotalTasks)*100) : 0;
+
+  const kpiCards = `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+      <div class="stat-card-sm"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;margin-bottom:5px">Projetos</div><div class="stat-value-lg" style="color:#6366f1">${kpiTotalProj}</div></div>
+      <div class="stat-card-sm"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;margin-bottom:5px">Tarefas</div><div class="stat-value-lg" style="color:#374151">${kpiTotalTasks}</div></div>
+      <div class="stat-card-sm"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;margin-bottom:5px">Esforço</div><div class="stat-value-lg" style="color:#0ea5e9">${kpiEsforco}</div></div>
+      <div class="stat-card-sm"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;margin-bottom:5px">Progresso</div><div class="stat-value-lg" style="color:#10b981">${kpiPctProgress}%</div></div>
+      <div class="stat-card-sm"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;margin-bottom:5px">Atrasadas</div><div class="stat-value-lg" style="color:${kpiAtrasadas>0?'#ef4444':'#9ca3af'}">${kpiAtrasadas}</div></div>
+    </div>`;
+
+  // ── Table 1: Progress summary ──────────────────────────────────────────────
+  // Status counts ignore the Status filter (so the user always sees the breakdown);
+  // but Tipo/Produto/Etapa filters still apply.
+  const table1Rows = filteredProjects.map(p=>{
+    const tasks = filteredTasks(p, {ignoreStatus:true});
+    if(!tasks.length) return "";
+    const totalEsforco = tasks.reduce((s,t)=>s+(Number(t.effort)||0),0);
+    const doneEsforco  = tasks.filter(t=>t.status==="Finalizado").reduce((s,t)=>s+(Number(t.effort)||0),0);
+    const pct = totalEsforco===0 ? 0 : Math.round((doneEsforco/totalEsforco)*100);
+    const fin  = tasks.filter(t=>t.status==="Finalizado").length;
+    const run  = tasks.filter(t=>t.status==="Em Execução").length;
+    const ni   = tasks.filter(t=>t.status==="Não Iniciado").length;
+    const late = tasks.filter(isOverdue).length;
+    const meta = getProjectMeta(p.name);
+    return `<tr>
+      <td>
+        <div style="font-weight:600;color:#374151;margin-bottom:2px">${p.name}</div>
+        <div style="font-size:10px;color:#9ca3af;margin-bottom:4px">${meta.produto} · ${meta.etapa}</div>
+        <div style="height:4px;background:#f3f4f6;border-radius:4px;width:120px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:#6366f1;border-radius:4px"></div>
+        </div>
+      </td>
+      <td style="text-align:center;font-weight:700;color:#6366f1">${pct}%</td>
+      <td style="text-align:center"><span style="color:#15803d;font-weight:600">${fin}</span></td>
+      <td style="text-align:center"><span style="color:#1d4ed8;font-weight:600">${run}</span></td>
+      <td style="text-align:center"><span style="color:#6b7280;font-weight:600">${ni}</span></td>
+      <td style="text-align:center"><span style="color:${late>0?"#ef4444":"#9ca3af"};font-weight:600">${late}</span></td>
+      <td style="text-align:center;color:#374151;font-weight:600">${tasks.length}</td>
+    </tr>`;
+  }).join("");
+
   const table1 = `
     <div class="table-wrap" style="margin-bottom:24px">
       <table class="dash-table">
@@ -296,120 +431,138 @@ function renderDashboard(){
           <th style="text-align:center">Total</th>
         </tr></thead>
         <tbody>
-          ${projects.map(p=>{
-            const tasks=filteredTasks(p);
-            if(!tasks.length) return "";
-            const pct=calcProgress(tasks);
-            const fin=tasks.filter(t=>t.status==="Finalizado").length;
-            const run=tasks.filter(t=>t.status==="Em Execução").length;
-            const ni=tasks.filter(t=>t.status==="Não Iniciado").length;
-            const late=tasks.filter(isOverdue).length;
-            return `<tr>
-              <td>
-                <div style="font-weight:600;color:#374151;margin-bottom:4px">${p.name}</div>
-                <div style="height:4px;background:#f3f4f6;border-radius:4px;width:120px;overflow:hidden">
-                  <div style="height:100%;width:${pct}%;background:#6366f1;border-radius:4px"></div>
-                </div>
-              </td>
-              <td style="text-align:center;font-weight:700;color:#6366f1">${pct}%</td>
-              <td style="text-align:center"><span style="color:#15803d;font-weight:600">${fin}</span></td>
-              <td style="text-align:center"><span style="color:#1d4ed8;font-weight:600">${run}</span></td>
-              <td style="text-align:center"><span style="color:#6b7280;font-weight:600">${ni}</span></td>
-              <td style="text-align:center"><span style="color:${late>0?"#ef4444":"#9ca3af"};font-weight:600">${late}</span></td>
-              <td style="text-align:center;color:#374151;font-weight:600">${tasks.length}</td>
-            </tr>`;
-          }).join("")}
+          ${table1Rows || `<tr><td colspan="7" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhum projeto/tarefa atende aos filtros aplicados.</td></tr>`}
         </tbody>
       </table>
     </div>`;
 
-  // ── Table 2: Tasks ending per week per project ──────────────────────────────
-  const allEnds = projects.flatMap(p=>filteredTasks(p).map(t=>t.end)).filter(Boolean).sort();
-  if(allEnds.length){
-    const firstEnd = new Date(allEnds[0]);
-    const lastEnd  = new Date(allEnds[allEnds.length-1]);
-    const snap = d => { const c=new Date(d); const day=c.getDay(); const off=day===0?1:(day===1?0:8-day); c.setDate(c.getDate()+off); return c; };
-    let wStart = snap(firstEnd);
-    const weeks = [];
-    while(wStart <= lastEnd){ weeks.push(new Date(wStart)); wStart=new Date(wStart); wStart.setDate(wStart.getDate()+7); }
-    const displayWeeks = weeks.slice(0,16);
-    const weekLabel = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-    const taskInWeek = (task,wEnd) => {
-      const wS=new Date(wEnd); wS.setDate(wS.getDate()-6);
-      return task.end>=wS.toISOString().slice(0,10)&&task.end<=wEnd.toISOString().slice(0,10);
+  // ── Table 2: Tasks ending per week per project (Monday-anchored) ───────────
+  // For each filtered task, the week is the Monday of that task's end-date week.
+  // Header shows dd/mm of the Monday; cell counts tasks (or sums effort) whose
+  // end falls in [Monday, Sunday] of that week.
+  const allMondays = [...new Set(
+    filteredProjects.flatMap(p => filteredTasks(p)
+      .map(t => getMondayOfWeek(t.end))
+      .filter(Boolean)
+    )
+  )].sort();
+
+  let table2 = "";
+  if(allMondays.length){
+    const weekLabel = isoMon => {
+      const [y,m,d] = isoMon.split("-");
+      return `${d}/${m}`;
     };
-    const table2 = `
-      <div style="overflow-x:auto;margin-bottom:24px">
-        <div class="table-wrap">
-          <table class="dash-table">
-            <thead><tr>
-              <th>Projeto</th>
-              ${displayWeeks.map(w=>`<th style="text-align:center;min-width:60px">Sem<br/>${weekLabel(w)}</th>`).join("")}
-            </tr></thead>
-            <tbody>
-              ${projects.map(p=>{
-                const tasks=filteredTasks(p);
-                if(!tasks.length) return "";
-                return `<tr>
-                  <td style="font-weight:600;color:#374151;white-space:nowrap">${p.name}</td>
-                  ${displayWeeks.map(w=>{
-                    const cnt=tasks.filter(t=>taskInWeek(t,w)).length;
-                    return `<td style="text-align:center">${cnt>0?`<span class="week-badge">${cnt}</span>`:`<span style="color:#e5e7eb">—</span>`}</td>`;
-                  }).join("")}
-                </tr>`;
-              }).join("")}
-            </tbody>
-          </table>
-        </div>
+    // Pre-compute aggregated values per (projectId, monday) for performance
+    const valByProjWeek = {};
+    filteredProjects.forEach(p => {
+      valByProjWeek[p.id] = {};
+      filteredTasks(p).forEach(t => {
+        const mon = getMondayOfWeek(t.end);
+        if(!mon) return;
+        const inc = dashVariavel === "esforco" ? (Number(t.effort)||0) : 1;
+        valByProjWeek[p.id][mon] = (valByProjWeek[p.id][mon] || 0) + inc;
+      });
+    });
+
+    const headerCells = allMondays.map(m => `
+      <th style="text-align:center;width:90px;min-width:90px;padding:8px 6px">
+        <div style="font-size:9px;color:#9ca3af;font-weight:600;text-transform:uppercase">Sem</div>
+        <div style="font-size:11px;color:#374151;font-weight:700;margin-top:1px">${weekLabel(m)}</div>
+      </th>`).join("");
+
+    const bodyRows = filteredProjects.map(p => {
+      const cells = allMondays.map(m => {
+        const v = valByProjWeek[p.id][m] || 0;
+        return `<td class="week-cell" style="text-align:center;width:90px;min-width:90px">${v>0?`<span class="week-badge">${v}</span>`:`<span style="color:#e5e7eb">—</span>`}</td>`;
+      }).join("");
+      const totalRow = filteredTasks(p).filter(t => getMondayOfWeek(t.end)).length;
+      if(totalRow===0 && dashStatusFilter.size===0) return ""; // skip projects with no tasks (when no status filter)
+      return `<tr>
+        <td class="proj-cell" style="font-weight:600;color:#374151;white-space:nowrap;position:sticky;left:0;background:#fff;border-right:1px solid #f3f4f6;min-width:200px;max-width:240px;overflow:hidden;text-overflow:ellipsis">${p.name}</td>
+        ${cells}
+      </tr>`;
+    }).filter(Boolean).join("");
+
+    // The wrapper limits the visible width to ~10 weeks (200 + 10*90 = 1100px).
+    // Anything beyond that scrolls horizontally.
+    table2 = `
+      <div style="margin-bottom:8px;font-size:11px;color:#9ca3af">
+        Cada coluna é a segunda-feira da semana. As tarefas são contadas com base na <strong>data de fim</strong>, na semana correspondente (seg → dom). Variável atual: <strong>${dashUnitLabel()}</strong>.
+      </div>
+      <div style="border-radius:12px;border:1px solid #e5e7eb;background:#fff;overflow-x:auto;max-width:100%">
+        <table class="dash-table" style="border-collapse:collapse;font-size:12px;min-width:max-content">
+          <thead>
+            <tr>
+              <th class="proj-col" style="text-align:left;position:sticky;left:0;background:#f9fafb;min-width:200px;max-width:240px;border-right:1px solid #e5e7eb;z-index:2">Projeto</th>
+              ${headerCells}
+            </tr>
+          </thead>
+          <tbody>${bodyRows || `<tr><td colspan="${allMondays.length+1}" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhuma tarefa atende aos filtros aplicados.</td></tr>`}</tbody>
+        </table>
       </div>`;
-
-    // ── Chart 3: Tasks per person ────────────────────────────────────────────
-    const colorMap = {};
-    projects.forEach((p,i)=>{ colorMap[p.id]=PALETTE[i%PALETTE.length]; });
-    const allResp = [...new Set(projects.flatMap(p=>filteredTasks(p).map(t=>t.responsible).filter(Boolean)))].sort();
-    const chartData = allResp.map(resp=>{
-      return { resp, byProj: projects.map(p=>({ id:p.id, name:p.name, count:filteredTasks(p).filter(t=>t.responsible===resp&&t.status!=="Finalizado").length })) };
-    }).filter(d=>d.byProj.some(x=>x.count>0));
-    const maxBar = Math.max(1,...chartData.map(d=>d.byProj.reduce((s,x)=>s+x.count,0)));
-
-    const chart3 = chartData.length===0?"":`
-      <div class="card" style="padding:20px;margin-bottom:24px">
-        <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:6px">Tarefas abertas por responsável</h3>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
-          ${projects.map(p=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6b7280"><div style="width:10px;height:10px;border-radius:2px;background:${colorMap[p.id]}"></div>${p.name}</div>`).join("")}
-        </div>
-        <div style="display:grid;gap:10px">
-          ${chartData.map(d=>{
-            const total=d.byProj.reduce((s,x)=>s+x.count,0);
-            return `
-              <div style="display:grid;grid-template-columns:140px 1fr 28px;align-items:center;gap:12px">
-                <div style="display:flex;align-items:center;gap:7px;min-width:0">
-                  <div class="avatar" style="flex-shrink:0">${initials(d.resp)}</div>
-                  <span style="font-size:12px;color:#374151;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.resp}</span>
-                </div>
-                <div style="height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden;display:flex">
-                  ${d.byProj.filter(x=>x.count>0).map(x=>`
-                    <div style="height:100%;width:${Math.round((x.count/maxBar)*100)}%;background:${colorMap[x.id]};min-width:2px" title="${x.name}: ${x.count}"></div>
-                  `).join("")}
-                </div>
-                <span style="font-size:12px;font-weight:700;color:#374151;text-align:right">${total}</span>
-              </div>`;
-          }).join("")}
-        </div>
-      </div>`;
-
-    return `
-      <h1 class="page-title">Dashboard</h1>
-      <p class="page-sub">Visão consolidada de todos os projetos</p>
-      ${filterBar}
-      <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Resumo por projeto</h3>
-      ${table1}
-      <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Tarefas previstas por semana</h3>
-      ${table2}
-      <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Tarefas abertas por responsável</h3>
-      ${chart3}`;
+  } else {
+    table2 = `<div class="card" style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Nenhuma tarefa com data de fim atende aos filtros.</div>`;
   }
-  return `<h1 class="page-title">Dashboard</h1><p class="page-sub">Visão consolidada de todos os projetos</p>${filterBar}${table1}`;
+
+  // ── Chart 3: Tasks per responsible (respects filters + variable) ───────────
+  const colorMap = {};
+  filteredProjects.forEach((p,i)=>{ colorMap[p.id]=PALETTE[i%PALETTE.length]; });
+  const allResp = [...new Set(filteredProjects.flatMap(p=>filteredTasks(p).map(t=>t.responsible).filter(Boolean)))].sort();
+  const chartData = allResp.map(resp=>{
+    return {
+      resp,
+      byProj: filteredProjects.map(p => ({
+        id: p.id,
+        name: p.name,
+        value: dashValueOf(filteredTasks(p).filter(t=>t.responsible===resp))
+      }))
+    };
+  }).filter(d=>d.byProj.some(x=>x.value>0));
+  const maxBar = Math.max(1,...chartData.map(d=>d.byProj.reduce((s,x)=>s+x.value,0)));
+
+  const chart3Title = dashStatusFilter.size
+    ? `Distribuição por responsável (${dashUnitLabel()})`
+    : `Tarefas por responsável (${dashUnitLabel()})`;
+
+  const chart3 = chartData.length===0 ? `<div class="card" style="padding:30px;text-align:center;color:#9ca3af;font-size:13px">Sem dados de responsáveis para os filtros aplicados.</div>` : `
+    <div class="card" style="padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;font-weight:700;color:#374151;margin-bottom:6px">${chart3Title}</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+        ${filteredProjects.map(p=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#6b7280"><div style="width:10px;height:10px;border-radius:2px;background:${colorMap[p.id]}"></div>${p.name}</div>`).join("")}
+      </div>
+      <div style="display:grid;gap:10px">
+        ${chartData.map(d=>{
+          const total=d.byProj.reduce((s,x)=>s+x.value,0);
+          return `
+            <div style="display:grid;grid-template-columns:140px 1fr 36px;align-items:center;gap:12px">
+              <div style="display:flex;align-items:center;gap:7px;min-width:0">
+                <div class="avatar" style="flex-shrink:0">${initials(d.resp)}</div>
+                <span style="font-size:12px;color:#374151;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.resp}</span>
+              </div>
+              <div style="height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden;display:flex">
+                ${d.byProj.filter(x=>x.value>0).map(x=>`
+                  <div style="height:100%;width:${Math.round((x.value/maxBar)*100)}%;background:${colorMap[x.id]};min-width:2px" title="${x.name}: ${x.value}"></div>
+                `).join("")}
+              </div>
+              <span style="font-size:12px;font-weight:700;color:#374151;text-align:right">${total}</span>
+            </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+
+  return `
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-sub">Visão consolidada de todos os projetos</p>
+    ${filterBar}
+    ${kpiCards}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Resumo por projeto</h3>
+    ${table1}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:6px">Tarefas previstas por semana</h3>
+    ${table2}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">${chart3Title}</h3>
+    ${chart3}
+  `;
 }
 
 // ─── SCHEDULE ─────────────────────────────────────────────────────────────────
