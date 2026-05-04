@@ -64,10 +64,29 @@ let linearSearch = "";
 let linearSort = "createdAt";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-function todayStr(){ return new Date().toISOString().slice(0,10); }
-function addDays(d,n){ const dt=new Date(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+// ── Helpers de data (sempre em horário local, evitando bug de fuso UTC) ───────
+function _isoLocal(d){
+  // Retorna YYYY-MM-DD da data `d` no fuso local (sem usar toISOString, que é UTC).
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function todayStr(){ return _isoLocal(new Date()); }
+function addDays(d,n){
+  // Parseia "YYYY-MM-DD" como horário local (T00:00:00) e soma n dias.
+  const base = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d+"T00:00:00" : d;
+  const dt = new Date(base); dt.setDate(dt.getDate()+n);
+  return _isoLocal(dt);
+}
 function genId(){ return "x"+Math.random().toString(36).slice(2,8); }
-function fmtDate(s){ return new Date(s).toLocaleDateString("pt-BR"); }
+function fmtDate(s){
+  if(!s) return "";
+  // Para "YYYY-MM-DD" forçamos parsing local (com T00:00:00); senão Date trata como UTC
+  // e em fusos negativos (BRT = UTC-3) volta um dia.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s+"T00:00:00" : s);
+  return d.toLocaleDateString("pt-BR");
+}
 function initials(name){ if(!name)return"?"; return name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase(); }
 function isOverdue(t){ return t.status!=="Finalizado" && t.end<todayStr(); }
 function calcProgress(tks){
@@ -261,15 +280,29 @@ let dashEtapaFilter   = new Set();
 let dashVariavel      = "count";   // "count" | "esforco"
 let dashPeriodFilter  = "todos";   // "todos" | "semana" | "4semanas" | "mes" | "proximo-mes" | "3meses"
 let dashOverdueSort   = "desc";    // "desc" | "asc" — ordenação da lista de atrasadas
+let dashFarmerFilter  = new Set(); // empty = todos
 
 function toggleDashStatus(v){if(v==="__clear__")dashStatusFilter.clear();else{if(dashStatusFilter.has(v))dashStatusFilter.delete(v);else dashStatusFilter.add(v);}render();}
 function toggleDashProduto(v){if(v==="__clear__")dashProdutoFilter.clear();else{if(dashProdutoFilter.has(v))dashProdutoFilter.delete(v);else dashProdutoFilter.add(v);}render();}
 function toggleDashEtapa(v){if(v==="__clear__")dashEtapaFilter.clear();else{if(dashEtapaFilter.has(v))dashEtapaFilter.delete(v);else dashEtapaFilter.add(v);}render();}
+function toggleDashFarmer(v){if(v==="__clear__")dashFarmerFilter.clear();else{if(dashFarmerFilter.has(v))dashFarmerFilter.delete(v);else dashFarmerFilter.add(v);}render();}
 
 // Look up produto/etapa from the alloc projects table by matching the implant project name
 function getProjectMeta(projName){
   const ap = allocProjects.find(a => a.nome === projName);
   return { produto: ap?.produto || "—", etapa: ap?.etapa || "—" };
+}
+
+// Devolve a lista de nomes de farmers alocados ao projeto (via vacancies funcao=Farmer).
+function getProjectFarmers(projName){
+  const ap = allocProjects.find(a => a.nome === projName);
+  if(!ap) return [];
+  const farmerIds = allocVacancies
+    .filter(v => v.projetoId === ap.id && v.funcao === "Farmer" && v.funcionarioId)
+    .map(v => v.funcionarioId);
+  return farmerIds
+    .map(id => allocEmployees.find(e => e.id === id)?.nome)
+    .filter(Boolean);
 }
 
 // Returns the ISO date (YYYY-MM-DD) of the Monday of the week that contains dateStr
@@ -331,6 +364,10 @@ function dashExportCsv(){
     const meta = getProjectMeta(p.name);
     if(dashProdutoFilter.size && !dashProdutoFilter.has(meta.produto)) return false;
     if(dashEtapaFilter.size   && !dashEtapaFilter.has(meta.etapa))     return false;
+    if(dashFarmerFilter.size){
+      const farmers = getProjectFarmers(p.name);
+      if(!farmers.some(f => dashFarmerFilter.has(f))) return false;
+    }
     return true;
   });
   const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim","Conclusão","Esforço","Atrasada"]];
@@ -373,11 +410,15 @@ function renderDashboard(){
       <p style="font-size:12px">Crie um projeto na aba <a href="#" onclick="navigate('projects')" style="color:#6366f1">Projetos</a> para ver o dashboard.</p>
     </div>`;
 
-  // ── Apply project-level filters (Produto / Etapa) ─────────────────────────
+  // ── Apply project-level filters (Produto / Etapa / Farmer) ─────────────────
   const filteredProjects = projects.filter(p => {
     const meta = getProjectMeta(p.name);
     if(dashProdutoFilter.size && !dashProdutoFilter.has(meta.produto)) return false;
     if(dashEtapaFilter.size   && !dashEtapaFilter.has(meta.etapa))     return false;
+    if(dashFarmerFilter.size){
+      const farmers = getProjectFarmers(p.name);
+      if(!farmers.some(f => dashFarmerFilter.has(f))) return false;
+    }
     return true;
   });
 
@@ -406,6 +447,9 @@ function renderDashboard(){
   const STATUS_OPTS  = ["Não Iniciado","Em Execução","Finalizado","Atrasado"];
   const allProdutos  = [...new Set(projects.map(p=>getProjectMeta(p.name).produto))].filter(Boolean).sort();
   const allEtapas    = [...new Set(projects.map(p=>getProjectMeta(p.name).etapa))].filter(Boolean).sort();
+  // Farmers: união dos farmers de todos os projetos cadastrados (não dos filtrados, para
+  // não esconder opções quando o usuário aperta um chip)
+  const allFarmers   = [...new Set(projects.flatMap(p=>getProjectFarmers(p.name)))].filter(Boolean).sort();
 
   // Reusable chip-set renderer for multi-select filters
   const chipMulti = (set, options, fnName, label, prefixIcon) => `
@@ -462,6 +506,7 @@ function renderDashboard(){
       ${chipMulti(dashStatusFilter,  STATUS_OPTS,  "toggleDashStatus",  "Status")}
       ${chipMulti(dashProdutoFilter, allProdutos,  "toggleDashProduto", "Produto")}
       ${chipMulti(dashEtapaFilter,   allEtapas,    "toggleDashEtapa",   "Etapa")}
+      ${allFarmers.length ? chipMulti(dashFarmerFilter, allFarmers, "toggleDashFarmer", "Farmer") : ""}
       ${periodChips}
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between">
         ${variavelChips}
@@ -584,6 +629,23 @@ function renderDashboard(){
       </tr>`;
     }).filter(Boolean).join("");
 
+    // Totalizador: soma de todos os projetos por semana + total geral
+    const colTotals = allMondays.map(m =>
+      filteredProjects.reduce((s,p) => s + (valByProjWeek[p.id][m] || 0), 0)
+    );
+    const grandTotal = colTotals.reduce((s,v)=>s+v, 0);
+    const totalCells = colTotals.map(v => `
+      <td style="text-align:center;width:90px;min-width:90px;font-weight:700;color:#374151;background:#f9fafb;border-top:2px solid #e5e7eb">
+        ${v>0 ? v : `<span style="color:#d1d5db">—</span>`}
+      </td>`).join("");
+    const totalsRow = `
+      <tr>
+        <td style="font-weight:700;color:#374151;white-space:nowrap;position:sticky;left:0;background:#f9fafb;border-right:1px solid #e5e7eb;border-top:2px solid #e5e7eb;padding:10px 12px;font-size:12px">
+          Total <span style="color:#9ca3af;font-weight:500">(${grandTotal})</span>
+        </td>
+        ${totalCells}
+      </tr>`;
+
     // The wrapper limits the visible width to ~10 weeks (200 + 10*90 = 1100px).
     // Anything beyond that scrolls horizontally.
     table2 = `
@@ -598,7 +660,7 @@ function renderDashboard(){
               ${headerCells}
             </tr>
           </thead>
-          <tbody>${bodyRows || `<tr><td colspan="${allMondays.length+1}" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhuma tarefa atende aos filtros aplicados.</td></tr>`}</tbody>
+          <tbody>${bodyRows || `<tr><td colspan="${allMondays.length+1}" style="text-align:center;padding:30px;color:#9ca3af;font-size:13px">Nenhuma tarefa atende aos filtros aplicados.</td></tr>`}${bodyRows ? totalsRow : ""}</tbody>
         </table>
       </div>`;
   } else {
@@ -2249,6 +2311,63 @@ db.ref(".info/connected").on("value", snap => {
 
 
 }
+
+// ── AUTH + INIT ───────────────────────────────────────────────────────────────
+function setLoadingState(){
+  document.getElementById("content").innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
+    </div>`;
+}
+
+function setupAuthUI(){
+  const loginBtn = document.getElementById("google-login-btn");
+  const logoutBtn = document.getElementById("logout-btn");
+  const errorEl = document.getElementById("auth-error");
+  if (loginBtn) {
+    loginBtn.addEventListener("click", async () => {
+      errorEl.textContent = "";
+      loginBtn.disabled = true;
+      loginBtn.textContent = "Entrando...";
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+      } catch (err) {
+        console.error("Google sign-in error:", err);
+        errorEl.textContent = "Não foi possível entrar com Google. Verifique se o provedor está habilitado no Firebase.";
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<span class="google-icon">G</span> Entrar com Google';
+      }
+    });
+  }
+  if (logoutBtn) logoutBtn.addEventListener("click", () => auth.signOut());
+}
+
+setupAuthUI();
+setLoadingState();
+
+auth.onAuthStateChanged(user => {
+  const authScreen = document.getElementById("auth-screen");
+  const app = document.getElementById("app");
+  const userbar = document.getElementById("auth-userbar");
+  const userName = document.getElementById("auth-user-name");
+
+  if (!user) {
+    authScreen?.classList.remove("hidden");
+    if (app) app.style.visibility = "hidden";
+    if (userbar) userbar.style.display = "none";
+    return;
+  }
+
+  authScreen?.classList.add("hidden");
+  if (app) app.style.visibility = "visible";
+  if (userbar) userbar.style.display = "flex";
+  if (userName) userName.textContent = user.displayName || user.email || "Usuário";
+  setLoadingState();
+  startFirebaseSync();
+});
 
 // ── AUTH + INIT ───────────────────────────────────────────────────────────────
 function setLoadingState(){
