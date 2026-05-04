@@ -259,6 +259,7 @@ let dashStatusFilter  = new Set(); // empty = todos
 let dashProdutoFilter = new Set();
 let dashEtapaFilter   = new Set();
 let dashVariavel      = "count";   // "count" | "esforco"
+let dashPeriodFilter  = "todos";   // "todos" | "semana" | "4semanas" | "mes" | "proximo-mes" | "3meses"
 
 function toggleDashStatus(v){if(v==="__clear__")dashStatusFilter.clear();else{if(dashStatusFilter.has(v))dashStatusFilter.delete(v);else dashStatusFilter.add(v);}render();}
 function toggleDashProduto(v){if(v==="__clear__")dashProdutoFilter.clear();else{if(dashProdutoFilter.has(v))dashProdutoFilter.delete(v);else dashProdutoFilter.add(v);}render();}
@@ -288,6 +289,79 @@ function dashValueOf(tasks){
 }
 function dashUnitLabel(){ return dashVariavel === "esforco" ? "esforço" : "tarefas"; }
 
+// Returns [startISO, endISO] (inclusive) for the current period filter, or null for "todos"
+function getDashPeriodRange(){
+  if(dashPeriodFilter === "todos") return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const monThis = new Date(today);
+  const day = monThis.getDay();
+  monThis.setDate(monThis.getDate() + (day === 0 ? -6 : 1 - day));
+  const fmt = d => d.toISOString().slice(0,10);
+  let start, end;
+  if(dashPeriodFilter === "semana"){
+    start = monThis;
+    end = new Date(monThis); end.setDate(end.getDate()+6);
+  } else if(dashPeriodFilter === "4semanas"){
+    start = monThis;
+    end = new Date(monThis); end.setDate(end.getDate()+27);
+  } else if(dashPeriodFilter === "mes"){
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end   = new Date(today.getFullYear(), today.getMonth()+1, 0);
+  } else if(dashPeriodFilter === "proximo-mes"){
+    start = new Date(today.getFullYear(), today.getMonth()+1, 1);
+    end   = new Date(today.getFullYear(), today.getMonth()+2, 0);
+  } else if(dashPeriodFilter === "3meses"){
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+    end   = new Date(today.getFullYear(), today.getMonth()+3, 0);
+  } else { return null; }
+  return [fmt(start), fmt(end)];
+}
+function isTaskInPeriod(task){
+  const range = getDashPeriodRange();
+  if(!range) return true;
+  if(!task.end) return false;
+  return task.end >= range[0] && task.end <= range[1];
+}
+
+// CSV export of the currently filtered tasks
+function dashExportCsv(){
+  if(!projects.length) return;
+  const filteredProjs = projects.filter(p => {
+    const meta = getProjectMeta(p.name);
+    if(dashProdutoFilter.size && !dashProdutoFilter.has(meta.produto)) return false;
+    if(dashEtapaFilter.size   && !dashEtapaFilter.has(meta.etapa))     return false;
+    return true;
+  });
+  const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim","Esforço","Atrasada"]];
+  filteredProjs.forEach(p => {
+    const meta = getProjectMeta(p.name);
+    let tasks = p.tasks;
+    if(dashTipoFilter !== "Todos"){
+      const macroIds = new Set(p.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
+      tasks = tasks.filter(t=>macroIds.has(t.macroId));
+    }
+    if(dashPeriodFilter !== "todos") tasks = tasks.filter(isTaskInPeriod);
+    if(dashStatusFilter.size){
+      tasks = tasks.filter(t => dashStatusFilter.has(isOverdue(t) ? "Atrasado" : t.status));
+    }
+    tasks.forEach(t => {
+      const macro = (p.macros.find(m=>m.id===t.macroId)||{}).name || "";
+      rows.push([p.name, meta.produto, meta.etapa, macro, t.name, t.responsible||"", t.status||"", t.start||"", t.end||"", Number(t.effort)||0, isOverdue(t)?"Sim":"Não"]);
+    });
+  });
+  const csv = rows.map(r => r.map(cell => {
+    const s = String(cell ?? "");
+    return /[",;\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(";")).join("\n");
+  const blob = new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dashboard_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function renderDashboard(){
   if(!projects.length) return `
     <h1 class="page-title">Dashboard</h1>
@@ -306,13 +380,17 @@ function renderDashboard(){
     return true;
   });
 
-  // ── Apply task-level filters (Tipo de macroetapa + Status) ─────────────────
+  // ── Apply task-level filters (Tipo de macroetapa + Período + Status) ───────
   // opts.ignoreStatus: keep status filter off (used for the per-status counts in table 1)
+  // opts.ignorePeriod: keep period filter off (used by burndown which spans full timeline)
   function filteredTasks(proj, opts={}){
     let tasks = proj.tasks;
     if(dashTipoFilter !== "Todos"){
       const macroIds = new Set(proj.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
       tasks = tasks.filter(t=>macroIds.has(t.macroId));
+    }
+    if(!opts.ignorePeriod && dashPeriodFilter !== "todos"){
+      tasks = tasks.filter(isTaskInPeriod);
     }
     if(!opts.ignoreStatus && dashStatusFilter.size){
       tasks = tasks.filter(t => {
@@ -360,13 +438,34 @@ function renderDashboard(){
       }).join("")}
     </div>`;
 
+  const periodOpts = [
+    {v:"todos",l:"Todos"},
+    {v:"semana",l:"Esta semana"},
+    {v:"4semanas",l:"Próximas 4 semanas"},
+    {v:"mes",l:"Este mês"},
+    {v:"proximo-mes",l:"Próximo mês"},
+    {v:"3meses",l:"Próximos 3 meses"}
+  ];
+  const periodChips = `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Período:</span>
+      ${periodOpts.map(o=>{
+        const on = dashPeriodFilter===o.v;
+        return `<button onclick="dashPeriodFilter='${o.v}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${o.l}</button>`;
+      }).join("")}
+    </div>`;
+
   const filterBar = `
     <div class="card" style="padding:14px 16px;margin-bottom:18px;display:grid;gap:8px">
       ${tipoChips}
       ${chipMulti(dashStatusFilter,  STATUS_OPTS,  "toggleDashStatus",  "Status")}
       ${chipMulti(dashProdutoFilter, allProdutos,  "toggleDashProduto", "Produto")}
       ${chipMulti(dashEtapaFilter,   allEtapas,    "toggleDashEtapa",   "Etapa")}
-      ${variavelChips}
+      ${periodChips}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between">
+        ${variavelChips}
+        <button onclick="dashExportCsv()" style="padding:6px 12px;border-radius:6px;border:1px solid #6366f1;background:#fff;color:#6366f1;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">⬇ Exportar CSV</button>
+      </div>
     </div>`;
 
   // ── KPI cards (respect all filters) ────────────────────────────────────────
@@ -393,14 +492,14 @@ function renderDashboard(){
   const table1Rows = filteredProjects.map(p=>{
     const tasks = filteredTasks(p, {ignoreStatus:true});
     if(!tasks.length) return "";
-    const totalEsforco = tasks.reduce((s,t)=>s+(Number(t.effort)||0),0);
-    const doneEsforco  = tasks.filter(t=>t.status==="Finalizado").reduce((s,t)=>s+(Number(t.effort)||0),0);
-    const pct = totalEsforco===0 ? 0 : Math.round((doneEsforco/totalEsforco)*100);
-    const fin  = tasks.filter(t=>t.status==="Finalizado").length;
-    const run  = tasks.filter(t=>t.status==="Em Execução").length;
-    const ni   = tasks.filter(t=>t.status==="Não Iniciado").length;
-    const late = tasks.filter(isOverdue).length;
-    const meta = getProjectMeta(p.name);
+    // Both counts and effort sums; "active" pair driven by dashVariavel
+    const total = dashValueOf(tasks);
+    const fin   = dashValueOf(tasks.filter(t=>t.status==="Finalizado"));
+    const run   = dashValueOf(tasks.filter(t=>t.status==="Em Execução"));
+    const ni    = dashValueOf(tasks.filter(t=>t.status==="Não Iniciado"));
+    const late  = dashValueOf(tasks.filter(isOverdue));
+    const pct   = total===0 ? 0 : Math.round((fin/total)*100);
+    const meta  = getProjectMeta(p.name);
     return `<tr>
       <td>
         <div style="font-weight:600;color:#374151;margin-bottom:2px">${p.name}</div>
@@ -414,7 +513,7 @@ function renderDashboard(){
       <td style="text-align:center"><span style="color:#1d4ed8;font-weight:600">${run}</span></td>
       <td style="text-align:center"><span style="color:#6b7280;font-weight:600">${ni}</span></td>
       <td style="text-align:center"><span style="color:${late>0?"#ef4444":"#9ca3af"};font-weight:600">${late}</span></td>
-      <td style="text-align:center;color:#374151;font-weight:600">${tasks.length}</td>
+      <td style="text-align:center;color:#374151;font-weight:600">${total}</td>
     </tr>`;
   }).join("");
 
@@ -551,15 +650,171 @@ function renderDashboard(){
       </div>
     </div>`;
 
+  // ── Top 5 most overdue tasks (uses all task-level filters) ─────────────────
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const overdueList = [];
+  filteredProjects.forEach(p => {
+    filteredTasks(p, {ignoreStatus:true}).forEach(t => {
+      if(!isOverdue(t)) return;
+      const endDate = new Date(t.end+"T00:00:00");
+      const daysLate = Math.floor((todayD - endDate)/(1000*60*60*24));
+      overdueList.push({ task:t, projName:p.name, daysLate });
+    });
+  });
+  overdueList.sort((a,b)=> b.daysLate - a.daysLate);
+  const top5 = overdueList.slice(0,5);
+  const top5Card = top5.length ? `
+    <div class="card" style="padding:18px;margin-bottom:20px;border-left:4px solid #ef4444">
+      <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;display:flex;align-items:center;gap:6px">⚠️ Top 5 tarefas mais atrasadas <span style="font-size:11px;font-weight:500;color:#9ca3af">(${overdueList.length} no total)</span></h3>
+      <div style="display:grid;gap:6px">
+        ${top5.map(o => `
+          <div style="display:grid;grid-template-columns:1fr 160px 110px 80px;gap:12px;align-items:center;padding:10px 12px;background:#fef2f2;border-radius:6px">
+            <div style="min-width:0">
+              <div style="font-weight:600;color:#374151;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${o.task.name}">${o.task.name}</div>
+              <div style="font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.projName}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;min-width:0">
+              <div class="avatar" style="flex-shrink:0;width:22px;height:22px;font-size:9px">${initials(o.task.responsible||"?")}</div>
+              <span style="font-size:11px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.task.responsible || "Sem responsável"}</span>
+            </div>
+            <div style="font-size:11px;color:#6b7280">Fim: ${o.task.end ? fmtDate(o.task.end) : "—"}</div>
+            <div style="text-align:right;font-weight:700;color:#ef4444;font-size:13px">${o.daysLate}d</div>
+          </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  // ── Heatmap: responsible × week (uses same Mondays as table 2) ─────────────
+  let heatmap = "";
+  if(allMondays.length){
+    const matrix = {};
+    filteredProjects.forEach(p => {
+      filteredTasks(p).forEach(t => {
+        if(!t.responsible) return;
+        const mon = getMondayOfWeek(t.end);
+        if(!mon) return;
+        if(!matrix[t.responsible]) matrix[t.responsible] = {};
+        const inc = dashVariavel === "esforco" ? (Number(t.effort)||0) : 1;
+        matrix[t.responsible][mon] = (matrix[t.responsible][mon]||0) + inc;
+      });
+    });
+    const respList = Object.keys(matrix).filter(r=>Object.values(matrix[r]).some(v=>v>0)).sort();
+    let maxVal = 0;
+    respList.forEach(r => Object.values(matrix[r]).forEach(v => { if(v>maxVal) maxVal=v; }));
+    const heatHeader = allMondays.map(m => {
+      const [y,mn,d] = m.split("-");
+      return `<th style="text-align:center;width:62px;min-width:62px;padding:6px 4px;font-size:10px;font-weight:700;color:#374151;background:#f9fafb">${d}/${mn}</th>`;
+    }).join("");
+    const heatBody = respList.map(r => {
+      const cells = allMondays.map(m => {
+        const v = matrix[r][m] || 0;
+        const intensity = maxVal === 0 ? 0 : v/maxVal;
+        const bg = v === 0 ? '#fafafa' : `rgba(99,102,241,${0.12 + intensity*0.78})`;
+        const txtColor = intensity > 0.55 ? '#fff' : (v===0 ? '#e5e7eb' : '#374151');
+        return `<td style="text-align:center;background:${bg};color:${txtColor};font-size:11px;font-weight:600;padding:8px 4px;width:62px;min-width:62px;border:1px solid #fff">${v>0?v:'·'}</td>`;
+      }).join("");
+      return `<tr>
+        <td style="font-weight:600;color:#374151;padding:6px 10px;white-space:nowrap;position:sticky;left:0;background:#fff;border-right:1px solid #e5e7eb;min-width:160px;font-size:12px">${r}</td>
+        ${cells}
+      </tr>`;
+    }).join("");
+    heatmap = respList.length ? `
+      <div style="margin-bottom:8px;font-size:11px;color:#9ca3af">Intensidade da cor proporcional ao valor (${dashUnitLabel()}). Tarefas alocadas pela semana de fim.</div>
+      <div style="border-radius:12px;border:1px solid #e5e7eb;background:#fff;overflow-x:auto;max-width:100%;margin-bottom:24px">
+        <table class="dash-table" style="border-collapse:collapse;font-size:12px;min-width:max-content">
+          <thead><tr>
+            <th style="text-align:left;position:sticky;left:0;background:#f9fafb;min-width:160px;border-right:1px solid #e5e7eb;z-index:2">Responsável</th>
+            ${heatHeader}
+          </tr></thead>
+          <tbody>${heatBody}</tbody>
+        </table>
+      </div>` : `<div class="card" style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Nenhum responsável com tarefas nas semanas filtradas.</div>`;
+  } else {
+    heatmap = `<div class="card" style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Sem dados para o heatmap nos filtros atuais.</div>`;
+  }
+
+  // ── Burndown chart per project (small multiples) ───────────────────────────
+  // Planned cumulative = tasks with end <= sunday of week W, weighted by variavel
+  // Actual cumulative  = same but only Finalizado
+  function buildBurndown(p){
+    const tasks = filteredTasks(p, {ignorePeriod:true, ignoreStatus:true});
+    const taskMondays = tasks.map(t=>getMondayOfWeek(t.end)).filter(Boolean).sort();
+    if(taskMondays.length < 2) return null;
+    const startMon = taskMondays[0];
+    const endMon = taskMondays[taskMondays.length-1];
+    const weeks = [];
+    let cur = new Date(startMon+"T00:00:00");
+    const endD = new Date(endMon+"T00:00:00");
+    while(cur <= endD){ weeks.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+7); }
+    const total = dashValueOf(tasks);
+    if(!total) return null;
+    const series = weeks.map(w => {
+      const sundayDate = new Date(w+"T00:00:00"); sundayDate.setDate(sundayDate.getDate()+6);
+      const sundayIso = sundayDate.toISOString().slice(0,10);
+      const planned = dashValueOf(tasks.filter(t=>t.end && t.end <= sundayIso));
+      const actual  = dashValueOf(tasks.filter(t=>t.status==="Finalizado" && t.end && t.end <= sundayIso));
+      return { week:w, planned, actual };
+    });
+    return { weeks, series, total };
+  }
+  function burndownSvg(data){
+    const W=300, H=130, pad={t:8,r:8,b:24,l:32};
+    const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+    const total = data.total;
+    const maxX = data.weeks.length - 1;
+    const xOf = i => pad.l + (maxX===0 ? innerW/2 : (i/maxX)*innerW);
+    const yOf = v => pad.t + innerH - (Math.max(0,v)/total)*innerH;
+    const idealLine = `M ${xOf(0)} ${yOf(total)} L ${xOf(maxX)} ${yOf(0)}`;
+    const plannedRem = data.series.map((s,i)=>`${i===0?'M':'L'} ${xOf(i)} ${yOf(total - s.planned)}`).join(' ');
+    const actualRem  = data.series.map((s,i)=>`${i===0?'M':'L'} ${xOf(i)} ${yOf(total - s.actual)}`).join(' ');
+    const step = Math.max(1, Math.ceil(data.weeks.length/5));
+    const xLabels = data.weeks.map((w,i)=>{
+      if(i!==0 && i!==maxX && i%step!==0) return '';
+      const [y,m,d]=w.split("-");
+      return `<text x="${xOf(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#9ca3af">${d}/${m}</text>`;
+    }).join('');
+    return `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+        <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${pad.t+innerH}" stroke="#e5e7eb"/>
+        <line x1="${pad.l}" y1="${pad.t+innerH}" x2="${W-pad.r}" y2="${pad.t+innerH}" stroke="#e5e7eb"/>
+        <text x="${pad.l-4}" y="${pad.t+4}" text-anchor="end" font-size="9" fill="#9ca3af">${total}</text>
+        <text x="${pad.l-4}" y="${pad.t+innerH+3}" text-anchor="end" font-size="9" fill="#9ca3af">0</text>
+        <path d="${idealLine}" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3" fill="none"/>
+        <path d="${plannedRem}" stroke="#6366f1" stroke-width="2" fill="none"/>
+        <path d="${actualRem}" stroke="#10b981" stroke-width="2" fill="none"/>
+        ${xLabels}
+      </svg>`;
+  }
+  const burndowns = filteredProjects.map(p => ({ p, b: buildBurndown(p) })).filter(x=>x.b);
+  const burndownSection = burndowns.length ? `
+    <div style="margin-bottom:8px;font-size:11px;color:#9ca3af;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+      <span>Variável: <strong>${dashUnitLabel()}</strong></span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#9ca3af;border-top:2px dashed #9ca3af"></span>Ideal</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#6366f1"></span>Planejado restante</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;background:#10b981"></span>Realizado restante</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;margin-bottom:24px">
+      ${burndowns.map(({p,b})=>`
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${p.name}">${p.name}</div>
+          <div style="font-size:10px;color:#9ca3af;margin-bottom:6px">${b.weeks.length} semanas · total ${b.total} ${dashUnitLabel()}</div>
+          ${burndownSvg(b)}
+        </div>`).join("")}
+    </div>` : `<div class="card" style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:24px">Sem dados suficientes para burndown (mínimo 2 semanas distintas por projeto).</div>`;
+
   return `
     <h1 class="page-title">Dashboard</h1>
     <p class="page-sub">Visão consolidada de todos os projetos</p>
     ${filterBar}
     ${kpiCards}
-    <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Resumo por projeto</h3>
+    ${top5Card}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Resumo por projeto <span style="font-size:11px;font-weight:500;color:#9ca3af">(${dashUnitLabel()})</span></h3>
     ${table1}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:6px">Tarefas previstas por semana</h3>
     ${table2}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 6px">Heatmap responsável × semana</h3>
+    ${heatmap}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:0 0 6px">Burndown por projeto</h3>
+    ${burndownSection}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">${chart3Title}</h3>
     ${chart3}
   `;
@@ -2022,3 +2277,4 @@ auth.onAuthStateChanged(user => {
   setLoadingState();
   startFirebaseSync();
 });
+
