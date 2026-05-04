@@ -260,6 +260,7 @@ let dashProdutoFilter = new Set();
 let dashEtapaFilter   = new Set();
 let dashVariavel      = "count";   // "count" | "esforco"
 let dashPeriodFilter  = "todos";   // "todos" | "semana" | "4semanas" | "mes" | "proximo-mes" | "3meses"
+let dashOverdueSort   = "desc";    // "desc" | "asc" — ordenação da lista de atrasadas
 
 function toggleDashStatus(v){if(v==="__clear__")dashStatusFilter.clear();else{if(dashStatusFilter.has(v))dashStatusFilter.delete(v);else dashStatusFilter.add(v);}render();}
 function toggleDashProduto(v){if(v==="__clear__")dashProdutoFilter.clear();else{if(dashProdutoFilter.has(v))dashProdutoFilter.delete(v);else dashProdutoFilter.add(v);}render();}
@@ -332,7 +333,7 @@ function dashExportCsv(){
     if(dashEtapaFilter.size   && !dashEtapaFilter.has(meta.etapa))     return false;
     return true;
   });
-  const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim","Esforço","Atrasada"]];
+  const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim","Conclusão","Esforço","Atrasada"]];
   filteredProjs.forEach(p => {
     const meta = getProjectMeta(p.name);
     let tasks = p.tasks;
@@ -346,7 +347,7 @@ function dashExportCsv(){
     }
     tasks.forEach(t => {
       const macro = (p.macros.find(m=>m.id===t.macroId)||{}).name || "";
-      rows.push([p.name, meta.produto, meta.etapa, macro, t.name, t.responsible||"", t.status||"", t.start||"", t.end||"", Number(t.effort)||0, isOverdue(t)?"Sim":"Não"]);
+      rows.push([p.name, meta.produto, meta.etapa, macro, t.name, t.responsible||"", t.status||"", t.start||"", t.end||"", t.completedAt||"", Number(t.effort)||0, isOverdue(t)?"Sim":"Não"]);
     });
   });
   const csv = rows.map(r => r.map(cell => {
@@ -650,7 +651,7 @@ function renderDashboard(){
       </div>
     </div>`;
 
-  // ── Top 5 most overdue tasks (uses all task-level filters) ─────────────────
+  // ── Lista completa de tarefas atrasadas (uses all task-level filters) ──────
   const todayD = new Date(); todayD.setHours(0,0,0,0);
   const overdueList = [];
   filteredProjects.forEach(p => {
@@ -661,13 +662,16 @@ function renderDashboard(){
       overdueList.push({ task:t, projName:p.name, daysLate });
     });
   });
-  overdueList.sort((a,b)=> b.daysLate - a.daysLate);
-  const top5 = overdueList.slice(0,5);
-  const top5Card = top5.length ? `
+  overdueList.sort((a,b)=> dashOverdueSort==="asc" ? a.daysLate - b.daysLate : b.daysLate - a.daysLate);
+  const sortLabel = dashOverdueSort === "desc" ? "Mais atrasadas primeiro ↓" : "Menos atrasadas primeiro ↑";
+  const overdueCard = overdueList.length ? `
     <div class="card" style="padding:18px;margin-bottom:20px;border-left:4px solid #ef4444">
-      <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;display:flex;align-items:center;gap:6px">⚠️ Top 5 tarefas mais atrasadas <span style="font-size:11px;font-weight:500;color:#9ca3af">(${overdueList.length} no total)</span></h3>
-      <div style="display:grid;gap:6px">
-        ${top5.map(o => `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <h3 style="font-size:13px;font-weight:700;color:#374151;display:flex;align-items:center;gap:6px;margin:0">⚠️ Tarefas atrasadas <span style="font-size:11px;font-weight:500;color:#9ca3af">(${overdueList.length})</span></h3>
+        <button onclick="dashOverdueSort=dashOverdueSort==='desc'?'asc':'desc';render()" style="padding:5px 10px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#6366f1;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">${sortLabel}</button>
+      </div>
+      <div style="display:grid;gap:6px;max-height:480px;overflow-y:auto">
+        ${overdueList.map(o => `
           <div style="display:grid;grid-template-columns:1fr 160px 110px 80px;gap:12px;align-items:center;padding:10px 12px;background:#fef2f2;border-radius:6px">
             <div style="min-width:0">
               <div style="font-weight:600;color:#374151;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${o.task.name}">${o.task.name}</div>
@@ -681,7 +685,7 @@ function renderDashboard(){
             <div style="text-align:right;font-weight:700;color:#ef4444;font-size:13px">${o.daysLate}d</div>
           </div>`).join("")}
       </div>
-    </div>` : "";
+    </div>` : `<div class="card" style="padding:30px;text-align:center;color:#9ca3af;font-size:13px;margin-bottom:20px">Nenhuma tarefa atrasada para os filtros aplicados. ✅</div>`;
 
   // ── Heatmap: responsible × week (uses same Mondays as table 2) ─────────────
   let heatmap = "";
@@ -747,11 +751,18 @@ function renderDashboard(){
     while(cur <= endD){ weeks.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+7); }
     const total = dashValueOf(tasks);
     if(!total) return null;
+    // Para "actual" usamos completedAt quando existir; caso contrário, fallback à data de fim
+    // (para tarefas legadas finalizadas antes do campo existir).
+    const completionDate = t => t.completedAt || t.end;
     const series = weeks.map(w => {
       const sundayDate = new Date(w+"T00:00:00"); sundayDate.setDate(sundayDate.getDate()+6);
       const sundayIso = sundayDate.toISOString().slice(0,10);
       const planned = dashValueOf(tasks.filter(t=>t.end && t.end <= sundayIso));
-      const actual  = dashValueOf(tasks.filter(t=>t.status==="Finalizado" && t.end && t.end <= sundayIso));
+      const actual  = dashValueOf(tasks.filter(t=>{
+        if(t.status !== "Finalizado") return false;
+        const cd = completionDate(t);
+        return cd && cd <= sundayIso;
+      }));
       return { week:w, planned, actual };
     });
     return { weeks, series, total };
@@ -806,7 +817,6 @@ function renderDashboard(){
     <p class="page-sub">Visão consolidada de todos os projetos</p>
     ${filterBar}
     ${kpiCards}
-    ${top5Card}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px">Resumo por projeto <span style="font-size:11px;font-weight:500;color:#9ca3af">(${dashUnitLabel()})</span></h3>
     ${table1}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:6px">Tarefas previstas por semana</h3>
@@ -817,6 +827,8 @@ function renderDashboard(){
     ${burndownSection}
     <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">${chart3Title}</h3>
     ${chart3}
+    <h3 style="font-size:13px;font-weight:700;color:#374151;margin:24px 0 10px">Tarefas atrasadas</h3>
+    ${overdueCard}
   `;
 }
 
@@ -1278,6 +1290,7 @@ function openModal(macroIdHint,taskId){
   document.getElementById("f-name").value=task?task.name:"";
   document.getElementById("f-start").value=task?task.start:todayStr();
   document.getElementById("f-end").value=task?task.end:addDays(todayStr(),7);
+  document.getElementById("f-completed").value=task?(task.completedAt||""):"";
   document.getElementById("f-effort").value=task?task.effort:3;
   document.getElementById("f-desc").value=task?task.description:"";
   document.getElementById("f-notes").value=task?task.notes:"";
@@ -1312,6 +1325,16 @@ function openModal(macroIdHint,taskId){
   document.getElementById("task-modal").classList.add("open");
 }
 function closeModal(){document.getElementById("task-modal").classList.remove("open");}
+// Auto-fill / clear data de conclusão quando o status muda no modal
+function onStatusChange(){
+  const status = document.getElementById("f-status").value;
+  const compEl = document.getElementById("f-completed");
+  if(status === "Finalizado"){
+    if(!compEl.value) compEl.value = todayStr();
+  } else {
+    compEl.value = "";
+  }
+}
 function updateSubetapas(){
   const p=getProject();if(!p)return;
   const macroId=Number(document.getElementById("f-macro").value);
@@ -1334,13 +1357,19 @@ function removeCheckItem(id){modalChecklist=modalChecklist.filter(c=>c.id!==id);
 function saveTask(){
   const p=getProject();if(!p)return;
   const id=document.getElementById("f-id").value;
+  const status=document.getElementById("f-status").value;
+  let completedAt=document.getElementById("f-completed").value || "";
+  // Regras de auto-preenchimento da data de conclusão
+  if(status === "Finalizado" && !completedAt) completedAt = todayStr();
+  if(status !== "Finalizado") completedAt = "";
   const task={
     id,name:document.getElementById("f-name").value.trim()||"Sem título",
     macroId:Number(document.getElementById("f-macro").value),
     subetapa:document.getElementById("f-sub").value,
     start:document.getElementById("f-start").value,
     end:document.getElementById("f-end").value,
-    status:document.getElementById("f-status").value,
+    completedAt,
+    status,
     responsible:document.getElementById("f-resp").value||"",
     effort:Number(document.getElementById("f-effort").value)||3,
     description:document.getElementById("f-desc").value,

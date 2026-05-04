@@ -114,12 +114,13 @@
         <div><label class="field-label">Macroetapa</label><select id="f-macro" onchange="updateSubetapas()"></select></div>
         <div><label class="field-label">Subetapa</label><select id="f-sub"></select></div>
       </div>
-      <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div><label class="field-label">Início</label><input type="date" id="f-start"/></div>
         <div><label class="field-label">Fim</label><input type="date" id="f-end"/></div>
+        <div><label class="field-label">Conclusão</label><input type="date" id="f-completed" title="Preenchido automaticamente quando o status for Finalizado"/></div>
       </div>
       <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div><label class="field-label">Status</label><select id="f-status"><option>Não Iniciado</option><option>Em Execução</option><option>Finalizado</option></select></div>
+        <div><label class="field-label">Status</label><select id="f-status" onchange="onStatusChange()"><option>Não Iniciado</option><option>Em Execução</option><option>Finalizado</option></select></div>
         <div><label class="field-label">Responsável</label><select id="f-resp"><option value="">— Sem responsável —</option></select></div>
         <div><label class="field-label">Esforço (1–5)</label><input type="number" id="f-effort" min="1" max="5" value="3"/></div>
       </div>
