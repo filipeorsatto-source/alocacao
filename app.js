@@ -2316,6 +2316,7 @@ deleteProject = function(id, e) {
 };
 const _origSaveTask = saveTask;
 saveTask = function() {
+  _origSaveTask();
   fbSaveProjects();
 };
 const _origDeleteTask = deleteTask;
@@ -2489,6 +2490,7 @@ auth.onAuthStateChanged(user => {
   const userName = document.getElementById("auth-user-name");
 
   if (!user) {
+    authScreen?.classList.remove("hidden");
     if (app) app.style.visibility = "hidden";
     if (userbar) userbar.style.display = "none";
     return;
@@ -2497,7 +2499,7 @@ auth.onAuthStateChanged(user => {
   authScreen?.classList.add("hidden");
   if (app) app.style.visibility = "visible";
   if (userbar) userbar.style.display = "flex";
-  if (userName) userName.textContent = user.displayName || user.email || "Usuário";
+  if (userName) userName.textContent = user.displayName || user.email || "Usuario";
   setLoadingState();
   startFirebaseSync();
 });
