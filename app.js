@@ -1532,7 +1532,13 @@ function addCheckItem(){const inp=document.getElementById("new-check-input");con
 function toggleCheckItem(id){modalChecklist=modalChecklist.map(c=>c.id===id?{...c,done:!c.done}:c);renderChecklist();}
 function removeCheckItem(id){modalChecklist=modalChecklist.filter(c=>c.id!==id);renderChecklist();}
 function saveTask(){
-  const p=getProject();if(!p)return;
+  console.log("[saveTask] called. currentProjectId=", currentProjectId, "projects.length=", projects.length);
+  const p=getProject();
+  if(!p){
+    console.warn("[saveTask] getProject() retornou undefined — currentProjectId não casa com nenhum projeto.");
+    alert("Não foi possível identificar o projeto atual. Tente reabrir o projeto pela barra lateral.");
+    return;
+  }
   const id=document.getElementById("f-id").value;
   const status=document.getElementById("f-status").value;
   const subetapaVal=document.getElementById("f-sub").value;
@@ -2483,7 +2489,6 @@ auth.onAuthStateChanged(user => {
   const userName = document.getElementById("auth-user-name");
 
   if (!user) {
-    authScreen?.classList.remove("hidden");
     if (app) app.style.visibility = "hidden";
     if (userbar) userbar.style.display = "none";
     return;
