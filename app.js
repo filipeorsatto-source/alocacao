@@ -215,20 +215,73 @@ function renderSidebarProjects(){
   if(!projects.length){el.innerHTML="";return;}
   el.innerHTML=`<div style="font-size:10px;color:#4b5563;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:0 10px 6px">Projetos</div>`+
     projects.map(p=>`
-      <div style="position:relative">
-        <button class="sb-btn ${currentProjectId===p.id&&currentPage==='schedule'?'active':''}" onclick="openProject('${p.id}')" style="padding-right:32px">
-          <div style="width:7px;height:7px;border-radius:50%;background:#6366f1;flex-shrink:0"></div>
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left">${p.name}</span>
-        </button>
-        <button onclick="deleteProject('${p.id}',event)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#4b5563;padding:3px;display:flex;align-items:center">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
+      <button class="sb-btn ${currentProjectId===p.id&&currentPage==='schedule'?'active':''}" onclick="openProject('${p.id}')">
+        <div style="width:7px;height:7px;border-radius:50%;background:#6366f1;flex-shrink:0"></div>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left">${p.name}</span>
+      </button>
     `).join("");
 }
 
 // ─── PROJECTS PAGE ────────────────────────────────────────────────────────────
 function renderProjects(){
+  // Agrupa projetos pelo "produto" cadastrado (via allocProjects, em getProjectMeta).
+  // Projetos sem produto vão pra "Sem produto".
+  const grupos = {};
+  projects.forEach(p => {
+    const meta = getProjectMeta(p.name);
+    const key  = meta.produto && meta.produto !== "—" ? meta.produto : "Sem produto";
+    if(!grupos[key]) grupos[key] = [];
+    grupos[key].push(p);
+  });
+  // Ordem alfabética de produtos; "Sem produto" sempre por último.
+  const ordemProdutos = Object.keys(grupos).sort((a,b) => {
+    if(a === "Sem produto") return 1;
+    if(b === "Sem produto") return -1;
+    return a.localeCompare(b, "pt-BR");
+  });
+
+  const renderCard = (p) => {
+    const pct  = calcProgress(p.tasks);
+    const fin  = p.tasks.filter(t=>t.status==="Finalizado").length;
+    const late = p.tasks.filter(isOverdue).length;
+    const allDates = p.tasks.flatMap(t=>[t.start,t.end]).filter(Boolean).sort();
+    const startD = allDates[0] ? fmtDate(allDates[0]) : "—";
+    const endD   = allDates[allDates.length-1] ? fmtDate(allDates[allDates.length-1]) : "—";
+    return `
+      <div class="proj-card" onclick="openProject('${p.id}')" style="position:relative">
+        <button onclick="deleteProject('${p.id}',event)" title="Excluir projeto"
+          style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:#d1d5db;padding:4px;border-radius:4px;display:flex;align-items:center;transition:color .15s,background .15s"
+          onmouseover="this.style.color='#ef4444';this.style.background='#fef2f2'"
+          onmouseout="this.style.color='#d1d5db';this.style.background='none'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+        <div class="proj-card-name" style="padding-right:28px">${p.name}</div>
+        <div class="proj-card-meta">${p.tasks.length} tarefas · ${startD} → ${endD}${late>0?` · <span style="color:#ef4444;font-weight:600">${late} atrasada${late>1?"s":""}</span>`:""}</div>
+        <div class="proj-card-bar"><div class="proj-card-fill" style="width:${pct}%"></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="proj-card-pct">${pct}% concluído</span>
+          <span style="font-size:11px;color:#9ca3af">${fin}/${p.tasks.length} tarefas</span>
+        </div>
+      </div>`;
+  };
+
+  const grupoBlocks = ordemProdutos.map(prod => {
+    // Ordena projetos dentro do grupo por nome
+    const lista = [...grupos[prod]].sort((a,b) => a.name.localeCompare(b.name, "pt-BR"));
+    return `
+      <div style="margin-bottom:28px">
+        <h2 style="font-size:13px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.05em;margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px">
+          <span>${prod}</span>
+          <span style="font-size:11px;font-weight:500;color:#9ca3af;text-transform:none;letter-spacing:0">${lista.length} projeto${lista.length!==1?"s":""}</span>
+        </h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+          ${lista.map(renderCard).join("")}
+        </div>
+      </div>`;
+  }).join("");
+
   return `
     <div class="header-row">
       <div><h1 class="page-title">Projetos</h1><p class="page-sub">Gerencie seus projetos de implantação</p></div>
@@ -243,29 +296,7 @@ function renderProjects(){
         <p style="font-weight:600;color:#374151;margin-bottom:6px;font-size:15px">Nenhum projeto criado</p>
         <p style="font-size:13px">Clique em "Novo projeto" para começar.</p>
       </div>
-    `:`
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
-        ${projects.map(p=>{
-          const pct=calcProgress(p.tasks);
-          const fin=p.tasks.filter(t=>t.status==="Finalizado").length;
-          const late=p.tasks.filter(isOverdue).length;
-          const allDates=p.tasks.flatMap(t=>[t.start,t.end]).filter(Boolean).sort();
-          const startD=allDates[0]?fmtDate(allDates[0]):"—";
-          const endD=allDates[allDates.length-1]?fmtDate(allDates[allDates.length-1]):"—";
-          return `
-            <div class="proj-card" onclick="openProject('${p.id}')">
-              <div class="proj-card-name">${p.name}</div>
-              <div class="proj-card-meta">${p.tasks.length} tarefas · ${startD} → ${endD}${late>0?` · <span style="color:#ef4444;font-weight:600">${late} atrasada${late>1?"s":""}</span>`:""}</div>
-              <div class="proj-card-bar"><div class="proj-card-fill" style="width:${pct}%"></div></div>
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <span class="proj-card-pct">${pct}% concluído</span>
-                <span style="font-size:11px;color:#9ca3af">${fin}/${p.tasks.length} tarefas</span>
-              </div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `}
+    `:grupoBlocks}
   `;
 }
 
@@ -1748,9 +1779,10 @@ function filterVagas(){
 
 function renderVagas(){
   const vagas = getFilteredVagas();
-  const total=allocVacancies.length;
-  const openCount=allocVacancies.filter(v=>!v.funcionarioId).length;
-  const closedCount=allocVacancies.filter(v=>!!v.funcionarioId).length;
+  // Os contadores agora refletem o conjunto filtrado em tela.
+  const total=vagas.length;
+  const openCount=vagas.filter(v=>!v.funcionarioId).length;
+  const closedCount=vagas.filter(v=>!!v.funcionarioId).length;
 
   return `
     <div class="header-row">
@@ -2470,7 +2502,7 @@ function setupAuthUI(){
         await auth.signInWithPopup(provider);
       } catch (err) {
         console.error("Google sign-in error:", err);
-        errorEl.textContent = "Não foi possível entrar com Google. Verifique se o provedor está habilitado no Firebase.";
+        errorEl.textContent = "Nao foi possivel entrar com Google. Verifique se o provedor esta habilitado no Firebase.";
       } finally {
         loginBtn.disabled = false;
         loginBtn.innerHTML = '<span class="google-icon">G</span> Entrar com Google';
