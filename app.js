@@ -199,6 +199,7 @@ function render(){
   else if(currentPage==="cadastro") c.innerHTML=renderCadastro();
   else if(currentPage==="resumo") c.innerHTML=renderResumo();
   else if(currentPage==="base") c.innerHTML=renderBase();
+  else if(currentPage==="tarefas") c.innerHTML=renderTarefas();
 }
 function updateSidebarFooter(){
   const footer=document.getElementById("sb-footer");
@@ -390,6 +391,146 @@ function isTaskInPeriod(task){
 }
 
 // CSV export of the currently filtered tasks
+// ─── TAREFAS (visão consolidada com filtros) ──────────────────────────────────
+let tarefasFilterStatus    = "";
+let tarefasFilterProjeto   = "";
+let tarefasFilterResp      = "";
+
+function tarefasSetFilter(kind, value){
+  if(kind==="status")  tarefasFilterStatus  = value;
+  if(kind==="projeto") tarefasFilterProjeto = value;
+  if(kind==="resp")    tarefasFilterResp    = value;
+  render();
+}
+
+// Abre o modal de tarefa garantindo que o currentProjectId está no projeto certo.
+function openTaskFromTarefas(projId, taskId){
+  currentProjectId = projId;
+  renderSidebarProjects();
+  openModal(null, taskId);
+}
+
+function renderTarefas(){
+  // Lista de nomes únicos para o filtro de responsável: combina funcionários
+  // cadastrados (allocEmployees) + qualquer nome que apareça em tarefas.
+  const nomesAlocados  = allocEmployees.map(e => e.nome).filter(Boolean);
+  const nomesEmTarefas = projects.flatMap(p => p.tasks.map(t => t.responsible).filter(Boolean));
+  const allResp = [...new Set([...nomesAlocados, ...nomesEmTarefas])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const allStatus = ["Não Iniciado","Em Execução","Finalizado"];
+
+  // Filtra projetos pelo selector (se filtrado por um projeto específico, mostra só ele)
+  let projetosVisiveis = projects;
+  if(tarefasFilterProjeto) projetosVisiveis = projects.filter(p => p.id === tarefasFilterProjeto);
+
+  // Para cada projeto, filtra as tarefas pelos demais critérios
+  const blocos = projetosVisiveis.map(p => {
+    let tasks = [...p.tasks];
+    if(tarefasFilterStatus) tasks = tasks.filter(t => t.status === tarefasFilterStatus);
+    if(tarefasFilterResp)   tasks = tasks.filter(t => t.responsible === tarefasFilterResp);
+    // Ordena: status (Em Execução → Não Iniciado → Finalizado) e depois por data fim
+    const statusOrder = { "Em Execução":0, "Não Iniciado":1, "Finalizado":2 };
+    tasks.sort((a,b) => {
+      const sa = statusOrder[a.status] ?? 3;
+      const sb = statusOrder[b.status] ?? 3;
+      if(sa !== sb) return sa - sb;
+      return (a.end||"").localeCompare(b.end||"");
+    });
+    return { p, tasks };
+  }).filter(b => b.tasks.length > 0);
+
+  const totalTarefas = blocos.reduce((s,b)=>s+b.tasks.length, 0);
+
+  const statusBadge = (t) => {
+    const over = isOverdue(t);
+    const label = over ? "Atrasada" : t.status;
+    const bg    = over ? "#fef2f2" : t.status === "Finalizado" ? "#f0fdf4" : t.status === "Em Execução" ? "#eff6ff" : "#f9fafb";
+    const fg    = over ? "#ef4444" : t.status === "Finalizado" ? "#15803d" : t.status === "Em Execução" ? "#1d4ed8" : "#6b7280";
+    return `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${bg};color:${fg};white-space:nowrap">${label}</span>`;
+  };
+
+  const filterBar = `
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px">
+      <select class="inp-sm" style="width:auto;min-width:160px" onchange="tarefasSetFilter('status', this.value)">
+        <option value="">Todos os status</option>
+        ${allStatus.map(s => `<option value="${s}" ${tarefasFilterStatus===s?"selected":""}>${s}</option>`).join("")}
+      </select>
+      <select class="inp-sm" style="width:auto;min-width:200px" onchange="tarefasSetFilter('projeto', this.value)">
+        <option value="">Todos os projetos</option>
+        ${projects.map(p => `<option value="${p.id}" ${tarefasFilterProjeto===p.id?"selected":""}>${p.name}</option>`).join("")}
+      </select>
+      <select class="inp-sm" style="width:auto;min-width:200px" onchange="tarefasSetFilter('resp', this.value)">
+        <option value="">Todas as pessoas</option>
+        ${allResp.map(n => `<option value="${n.replace(/"/g,'&quot;')}" ${tarefasFilterResp===n?"selected":""}>${n}</option>`).join("")}
+      </select>
+      ${(tarefasFilterStatus||tarefasFilterProjeto||tarefasFilterResp) ? `
+        <button onclick="tarefasFilterStatus='';tarefasFilterProjeto='';tarefasFilterResp='';render()"
+          style="padding:6px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#6b7280;font-size:11px;cursor:pointer;font-family:inherit">
+          Limpar filtros
+        </button>` : ""}
+      <div style="flex:1"></div>
+      <span style="font-size:12px;color:#9ca3af">${totalTarefas} tarefa${totalTarefas!==1?"s":""} em ${blocos.length} projeto${blocos.length!==1?"s":""}</span>
+    </div>`;
+
+  if(blocos.length === 0){
+    return `
+      <h1 class="page-title">Tarefas</h1>
+      <p class="page-sub">Lista consolidada de todas as tarefas, agrupadas por projeto.</p>
+      ${filterBar}
+      <div class="card" style="padding:50px;text-align:center;color:#9ca3af">
+        <div style="font-size:34px;margin-bottom:10px">📋</div>
+        <p style="font-weight:600;color:#374151;margin-bottom:4px">Nenhuma tarefa atende aos filtros</p>
+        <p style="font-size:13px">Ajuste os filtros ou cadastre tarefas nos projetos.</p>
+      </div>`;
+  }
+
+  const blocoHtml = blocos.map(({p, tasks}) => {
+    const meta = getProjectMeta(p.name);
+    const finCnt = tasks.filter(t=>t.status==="Finalizado").length;
+    const lateCnt = tasks.filter(isOverdue).length;
+    const tasksHtml = tasks.map(t => {
+      const macro = (p.macros.find(m => m.id === t.macroId) || {}).name || "—";
+      return `
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:9px 12px;font-size:12px;color:#374151;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.name||'').replace(/"/g,'&quot;')}">${t.name || "—"}</td>
+          <td style="padding:9px 12px;font-size:11px;color:#6b7280;white-space:nowrap">${macro}${t.subetapa?` · <span style="color:#9ca3af">${t.subetapa}</span>`:""}</td>
+          <td style="padding:9px 12px;font-size:12px;color:#374151;white-space:nowrap">${t.responsible || `<span style="color:#d1d5db">—</span>`}</td>
+          <td style="padding:9px 12px;font-size:11px;color:#6b7280;white-space:nowrap">${t.end ? fmtDate(t.end) : `<span style="color:#d1d5db">—</span>`}</td>
+          <td style="padding:9px 12px;text-align:center">${statusBadge(t)}</td>
+          <td style="padding:9px 12px;text-align:right">
+            <button onclick="openTaskFromTarefas('${p.id}','${t.id}')" class="btn-edit-sm" style="padding:4px 10px;font-size:11px">Abrir</button>
+          </td>
+        </tr>`;
+    }).join("");
+    return `
+      <div class="card" style="padding:0;margin-bottom:18px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fafafa">
+          <div style="font-size:14px;font-weight:700;color:#111">${p.name}</div>
+          <div style="font-size:11px;color:#9ca3af">${meta.produto} · ${meta.etapa}</div>
+          <div style="flex:1"></div>
+          <span style="font-size:11px;color:#6b7280">${tasks.length} tarefa${tasks.length!==1?"s":""}${finCnt>0?` · <span style=\"color:#15803d\">${finCnt} finalizada${finCnt!==1?"s":""}</span>`:""}${lateCnt>0?` · <span style=\"color:#ef4444\">${lateCnt} atrasada${lateCnt!==1?"s":""}</span>`:""}</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:#fff">
+            <th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;border-bottom:1px solid #e5e7eb">Tarefa</th>
+            <th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;border-bottom:1px solid #e5e7eb">Macro · Subetapa</th>
+            <th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;border-bottom:1px solid #e5e7eb">Responsável</th>
+            <th style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;border-bottom:1px solid #e5e7eb">Prazo</th>
+            <th style="text-align:center;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:700;border-bottom:1px solid #e5e7eb">Status</th>
+            <th style="border-bottom:1px solid #e5e7eb"></th>
+          </tr></thead>
+          <tbody>${tasksHtml}</tbody>
+        </table>
+      </div>`;
+  }).join("");
+
+  return `
+    <h1 class="page-title">Tarefas</h1>
+    <p class="page-sub">Lista consolidada de todas as tarefas, agrupadas por projeto.</p>
+    ${filterBar}
+    ${blocoHtml}
+  `;
+}
+
 // ─── BASE DE DADOS (export-friendly flat view) ────────────────────────────────
 let baseSearchTerm = "";
 let baseSortKey    = "projeto";
@@ -397,10 +538,14 @@ let baseSortDir    = "asc";
 
 function buildBaseRows(){
   // Linha = uma tarefa. Mantém a ordem solicitada de colunas.
+  // Lookup de área do responsável via allocEmployees (nome → area).
+  const empByName = {};
+  allocEmployees.forEach(e => { if(e.nome) empByName[e.nome] = e; });
   const rows = [];
   projects.forEach(p => {
     p.tasks.forEach(t => {
       const macro = (p.macros.find(m => m.id === t.macroId) || {}).name || "";
+      const areaResp = t.responsible && empByName[t.responsible] ? (empByName[t.responsible].area || "") : "";
       rows.push({
         projeto:    p.name,
         macro,
@@ -411,6 +556,7 @@ function buildBaseRows(){
         conclusao:  t.completedAt || "",
         esforco:    Number(t.effort) || 0,
         responsavel:t.responsible || "",
+        areaResp,
         status:     t.status || "",
       });
     });
@@ -428,9 +574,9 @@ function baseSetSearch(v){ baseSearchTerm = (v||"").trim().toLowerCase(); render
 
 function baseExport(){
   const rows = buildBaseRows();
-  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim","Data Conclusão","Esforço","Responsável","Status"];
+  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim","Data Conclusão","Esforço","Responsável","Área do Responsável","Status"];
   const matrix = [header, ...rows.map(r => [
-    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fim, r.conclusao, r.esforco, r.responsavel, r.status
+    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fim, r.conclusao, r.esforco, r.responsavel, r.areaResp, r.status
   ])];
   const csv = matrix.map(line => line.map(cell => {
     const s = String(cell ?? "");
@@ -472,6 +618,7 @@ function renderBase(){
     { key:"conclusao",   label:"Data Conclusão", fmt:fmtDate },
     { key:"esforco",     label:"Esforço",        align:"center" },
     { key:"responsavel", label:"Responsável" },
+    { key:"areaResp",    label:"Área" },
     { key:"status",      label:"Status" },
   ];
 
@@ -1885,16 +2032,17 @@ function renderCadastro(){
     <div class="table-wrap" style="margin-bottom:36px">
       <table>
         <thead><tr>
-          <th>Nome</th><th>Área</th><th>Vagas</th><th></th>
+          <th>Nome</th><th>Área</th><th>Produto</th><th>Vagas</th><th></th>
         </tr></thead>
         <tbody>
-          ${sortedEmp.length===0?`<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:28px">Nenhum funcionário cadastrado</td></tr>`:""}
+          ${sortedEmp.length===0?`<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:28px">Nenhum funcionário cadastrado</td></tr>`:""}
           ${sortedEmp.map(e=>{
             const ac=AREA_COLORS[e.area]||"ds";
             const vc=allocVacancies.filter(v=>v.funcionarioId===e.id).length;
             return `<tr>
               <td style="font-weight:500">${e.nome}</td>
               <td><span class="tag tag-${ac}">${e.area}</span></td>
+              <td>${e.produto ? `<span style="font-size:12px;color:#374151">${e.produto}</span>` : `<span style="font-size:12px;color:#d1d5db">—</span>`}</td>
               <td><span style="font-size:12px;color:#6b7280">${vc} vaga${vc!==1?"s":""}</span></td>
               <td><div style="display:flex;gap:6px">
                 <button class="btn-edit-sm" onclick="openAllocModal('employee','${e.id}')">${iEd}</button>
@@ -2008,11 +2156,11 @@ function renderResumo(){
         <p style="font-size:13px">Cadastre funcionários, projetos e vagas para ver a matriz.</p>
       </div>
     `:`
-      <div style="overflow-x:auto" class="table-wrap">
+      <div class="table-wrap" style="overflow:auto;max-height:calc(100vh - 240px)">
         <table class="matrix-table">
           <thead>
             <tr>
-              <th style="min-width:150px;position:sticky;left:0;z-index:3;background:#f9fafb">Funcionário</th>
+              <th style="min-width:150px;position:sticky;top:0;left:0;z-index:4;background:#f9fafb">Funcionário</th>
               ${colHeaders}
             </tr>
           </thead>
@@ -2049,8 +2197,16 @@ function renderAllocModal(){
       </div>
       <div class="modal-body">
         <div class="modal-field"><label class="field-label">Nome</label><input type="text" id="am-nome" value="${data.nome||""}" placeholder="Nome completo..."/></div>
-        <div class="modal-field"><label class="field-label">Área</label>
-          <select id="am-area">${ALLOC_AREAS.map(a=>`<option value="${a}" ${(data.area||"")===a?"selected":""}>${a}</option>`).join("")}</select>
+        <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label class="field-label">Área</label>
+            <select id="am-area">${ALLOC_AREAS.map(a=>`<option value="${a}" ${(data.area||"")===a?"selected":""}>${a}</option>`).join("")}</select>
+          </div>
+          <div><label class="field-label">Produto</label>
+            <select id="am-produto">
+              <option value="" ${!data.produto?"selected":""}>— Sem produto —</option>
+              ${ALLOC_PRODUTOS.map(p=>`<option value="${p}" ${(data.produto||"")===p?"selected":""}>${p}</option>`).join("")}
+            </select>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn-outline" onclick="closeAllocModal()">Cancelar</button>
@@ -2152,12 +2308,13 @@ function closeAllocModal(){
 function saveAllocEmployee(editId){
   const nome=document.getElementById("am-nome").value.trim();
   const area=document.getElementById("am-area").value;
+  const produto=document.getElementById("am-produto").value;
   if(!nome){alert("Informe o nome do funcionário.");return;}
   if(editId){
     const idx=allocEmployees.findIndex(e=>e.id===editId);
-    if(idx>=0)allocEmployees[idx]={id:editId,nome,area};
+    if(idx>=0)allocEmployees[idx]={id:editId,nome,area,produto};
   } else {
-    allocEmployees.push({id:allocGenId(),nome,area});
+    allocEmployees.push({id:allocGenId(),nome,area,produto});
   }
   closeAllocModal();
   render();
@@ -2260,7 +2417,7 @@ function sanitizeAppState(){
       checklist: sanitizeChecklist(t.checklist)
     }))
   }));
-  allocEmployees = (allocEmployees || []).map(e => ({ ...e, nome: cleanText(e.nome || ''), area: cleanText(e.area || '') }));
+  allocEmployees = (allocEmployees || []).map(e => ({ ...e, nome: cleanText(e.nome || ''), area: cleanText(e.area || ''), produto: cleanText(e.produto || '') }));
   allocProjects = (allocProjects || []).map(p => ({
     ...p,
     nome: cleanText(p.nome || ''),
@@ -2282,7 +2439,6 @@ const firebaseConfig = {
   databaseURL: "https://rivio-projetos-default-rtdb.firebaseio.com",
   projectId: "rivio-projetos",
   storageBucket: "rivio-projetos.firebasestorage.app",
-  messagingSenderId: "549628278181",
   appId: "1:549628278181:web:86fbdaf2a7c0d5e2eee44c"
 };
 firebase.initializeApp(firebaseConfig);
@@ -2502,7 +2658,7 @@ function setupAuthUI(){
         await auth.signInWithPopup(provider);
       } catch (err) {
         console.error("Google sign-in error:", err);
-        errorEl.textContent = "Nao foi possivel entrar com Google. Verifique se o provedor esta habilitado no Firebase.";
+        errorEl.textContent = "Não foi possível entrar com Google. Verifique se o provedor está habilitado no Firebase.";
       } finally {
         loginBtn.disabled = false;
         loginBtn.innerHTML = '<span class="google-icon">G</span> Entrar com Google';
@@ -2531,7 +2687,7 @@ auth.onAuthStateChanged(user => {
   authScreen?.classList.add("hidden");
   if (app) app.style.visibility = "visible";
   if (userbar) userbar.style.display = "flex";
-  if (userName) userName.textContent = user.displayName || user.email || "Usuario";
+  if (userName) userName.textContent = user.displayName || user.email || "Usuário";
   setLoadingState();
   startFirebaseSync();
 });
