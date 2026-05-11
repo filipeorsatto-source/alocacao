@@ -311,7 +311,7 @@ let dashStatusFilter  = new Set(); // empty = todos
 let dashProdutoFilter = new Set();
 let dashEtapaFilter   = new Set();
 let dashVariavel      = "count";   // "count" | "esforco"
-let dashPeriodFilter  = "todos";   // "todos" | "semana" | "4semanas" | "mes" | "proximo-mes" | "3meses"
+let dashWeekFilter    = new Set(); // semanas (ISO da segunda-feira) — vazio = todas
 let dashOverdueSort   = "desc";    // "desc" | "asc" — ordenação da lista de atrasadas
 let dashFarmerFilter  = new Set(); // empty = todos
 
@@ -319,6 +319,7 @@ function toggleDashStatus(v){if(v==="__clear__")dashStatusFilter.clear();else{if
 function toggleDashProduto(v){if(v==="__clear__")dashProdutoFilter.clear();else{if(dashProdutoFilter.has(v))dashProdutoFilter.delete(v);else dashProdutoFilter.add(v);}render();}
 function toggleDashEtapa(v){if(v==="__clear__")dashEtapaFilter.clear();else{if(dashEtapaFilter.has(v))dashEtapaFilter.delete(v);else dashEtapaFilter.add(v);}render();}
 function toggleDashFarmer(v){if(v==="__clear__")dashFarmerFilter.clear();else{if(dashFarmerFilter.has(v))dashFarmerFilter.delete(v);else dashFarmerFilter.add(v);}render();}
+function toggleDashWeek(v){if(v==="__clear__")dashWeekFilter.clear();else{if(dashWeekFilter.has(v))dashWeekFilter.delete(v);else dashWeekFilter.add(v);}render();}
 
 // Look up produto/etapa from the alloc projects table by matching the implant project name
 function getProjectMeta(projName){
@@ -356,52 +357,26 @@ function dashValueOf(tasks){
 }
 function dashUnitLabel(){ return dashVariavel === "esforco" ? "esforço" : "tarefas"; }
 
-// Returns [startISO, endISO] (inclusive) for the current period filter, or null for "todos"
-function getDashPeriodRange(){
-  if(dashPeriodFilter === "todos") return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const monThis = new Date(today);
-  const day = monThis.getDay();
-  monThis.setDate(monThis.getDate() + (day === 0 ? -6 : 1 - day));
-  const fmt = d => d.toISOString().slice(0,10);
-  let start, end;
-  if(dashPeriodFilter === "semana"){
-    start = monThis;
-    end = new Date(monThis); end.setDate(end.getDate()+6);
-  } else if(dashPeriodFilter === "4semanas"){
-    start = monThis;
-    end = new Date(monThis); end.setDate(end.getDate()+27);
-  } else if(dashPeriodFilter === "mes"){
-    start = new Date(today.getFullYear(), today.getMonth(), 1);
-    end   = new Date(today.getFullYear(), today.getMonth()+1, 0);
-  } else if(dashPeriodFilter === "proximo-mes"){
-    start = new Date(today.getFullYear(), today.getMonth()+1, 1);
-    end   = new Date(today.getFullYear(), today.getMonth()+2, 0);
-  } else if(dashPeriodFilter === "3meses"){
-    start = new Date(today.getFullYear(), today.getMonth(), 1);
-    end   = new Date(today.getFullYear(), today.getMonth()+3, 0);
-  } else { return null; }
-  return [fmt(start), fmt(end)];
-}
+// Filtro de semana: tarefa passa se a semana (segunda-feira) da sua data fim
+// estiver no conjunto selecionado. Vazio = todas as semanas passam.
 function isTaskInPeriod(task){
-  const range = getDashPeriodRange();
-  if(!range) return true;
+  if(dashWeekFilter.size === 0) return true;
   if(!task.end) return false;
-  return task.end >= range[0] && task.end <= range[1];
+  const mon = getMondayOfWeek(task.end);
+  return mon && dashWeekFilter.has(mon);
 }
 
 // CSV export of the currently filtered tasks
 // ─── TAREFAS (visão consolidada com filtros) ──────────────────────────────────
-let tarefasFilterStatus    = "";
-let tarefasFilterProjeto   = "";
-let tarefasFilterResp      = "";
+let tarefasFilterStatus  = new Set();
+let tarefasFilterProjeto = new Set();
+let tarefasFilterResp    = new Set();
+let tarefasFilterSemana  = new Set(); // segundas-feiras (ISO) das semanas selecionadas
 
-function tarefasSetFilter(kind, value){
-  if(kind==="status")  tarefasFilterStatus  = value;
-  if(kind==="projeto") tarefasFilterProjeto = value;
-  if(kind==="resp")    tarefasFilterResp    = value;
-  render();
-}
+function toggleTarefasStatus(v){if(v==="__clear__")tarefasFilterStatus.clear();else{if(tarefasFilterStatus.has(v))tarefasFilterStatus.delete(v);else tarefasFilterStatus.add(v);}render();}
+function toggleTarefasProjeto(v){if(v==="__clear__")tarefasFilterProjeto.clear();else{if(tarefasFilterProjeto.has(v))tarefasFilterProjeto.delete(v);else tarefasFilterProjeto.add(v);}render();}
+function toggleTarefasResp(v){if(v==="__clear__")tarefasFilterResp.clear();else{if(tarefasFilterResp.has(v))tarefasFilterResp.delete(v);else tarefasFilterResp.add(v);}render();}
+function toggleTarefasSemana(v){if(v==="__clear__")tarefasFilterSemana.clear();else{if(tarefasFilterSemana.has(v))tarefasFilterSemana.delete(v);else tarefasFilterSemana.add(v);}render();}
 
 // Abre o modal de tarefa garantindo que o currentProjectId está no projeto certo.
 function openTaskFromTarefas(projId, taskId){
@@ -417,16 +392,26 @@ function renderTarefas(){
   const nomesEmTarefas = projects.flatMap(p => p.tasks.map(t => t.responsible).filter(Boolean));
   const allResp = [...new Set([...nomesAlocados, ...nomesEmTarefas])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
   const allStatus = ["Não Iniciado","Em Execução","Finalizado"];
+  // Semanas disponíveis: segundas-feiras das datas-fim em todas as tarefas
+  const allSemanas = [...new Set(
+    projects.flatMap(p => p.tasks.map(t => getMondayOfWeek(t.end)).filter(Boolean))
+  )].sort();
+  const fmtSemana = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
 
-  // Filtra projetos pelo selector (se filtrado por um projeto específico, mostra só ele)
-  let projetosVisiveis = projects;
-  if(tarefasFilterProjeto) projetosVisiveis = projects.filter(p => p.id === tarefasFilterProjeto);
+  // Filtra projetos pelos chips de projeto (vazio = todos)
+  let projetosVisiveis = tarefasFilterProjeto.size === 0
+    ? projects
+    : projects.filter(p => tarefasFilterProjeto.has(p.id));
 
   // Para cada projeto, filtra as tarefas pelos demais critérios
   const blocos = projetosVisiveis.map(p => {
     let tasks = [...p.tasks];
-    if(tarefasFilterStatus) tasks = tasks.filter(t => t.status === tarefasFilterStatus);
-    if(tarefasFilterResp)   tasks = tasks.filter(t => t.responsible === tarefasFilterResp);
+    if(tarefasFilterStatus.size > 0) tasks = tasks.filter(t => tarefasFilterStatus.has(t.status));
+    if(tarefasFilterResp.size > 0)   tasks = tasks.filter(t => t.responsible && tarefasFilterResp.has(t.responsible));
+    if(tarefasFilterSemana.size > 0) tasks = tasks.filter(t => {
+      const mon = getMondayOfWeek(t.end);
+      return mon && tarefasFilterSemana.has(mon);
+    });
     // Ordena: status (Em Execução → Não Iniciado → Finalizado) e depois por data fim
     const statusOrder = { "Em Execução":0, "Não Iniciado":1, "Finalizado":2 };
     tasks.sort((a,b) => {
@@ -448,27 +433,46 @@ function renderTarefas(){
     return `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${bg};color:${fg};white-space:nowrap">${label}</span>`;
   };
 
+  // Helper local de chips multi-select (mesmo padrão do dashboard).
+  const chipMulti = (set, options, fnName, label, valFn, labelFn) => `
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:84px">${label}:</span>
+      ${options.map(opt=>{
+        const v  = valFn   ? valFn(opt)   : opt;
+        const l  = labelFn ? labelFn(opt) : opt;
+        const on = set.has(v);
+        return `<button onclick="${fnName}('${String(v).replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit">${l}</button>`;
+      }).join("")}
+      ${set.size>0?`<button onclick="${fnName}('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit">✕ limpar</button>`:""}
+    </div>`;
+
+  // Chips de semana (lista pode ser longa — usa scroll horizontal).
+  const chipsSemana = allSemanas.length === 0 ? "" : `
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:84px;flex-shrink:0">Semana:</span>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex:1">
+        ${allSemanas.map(iso=>{
+          const on = tarefasFilterSemana.has(iso);
+          return `<button onclick="toggleTarefasSemana('${iso}')" title="Semana de ${fmtSemana(iso)}" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${fmtSemana(iso)}</button>`;
+        }).join("")}
+        ${tarefasFilterSemana.size>0?`<button onclick="toggleTarefasSemana('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">✕ limpar</button>`:""}
+      </div>
+    </div>`;
+
+  const hasFilter = tarefasFilterStatus.size||tarefasFilterProjeto.size||tarefasFilterResp.size||tarefasFilterSemana.size;
   const filterBar = `
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px">
-      <select class="inp-sm" style="width:auto;min-width:160px" onchange="tarefasSetFilter('status', this.value)">
-        <option value="">Todos os status</option>
-        ${allStatus.map(s => `<option value="${s}" ${tarefasFilterStatus===s?"selected":""}>${s}</option>`).join("")}
-      </select>
-      <select class="inp-sm" style="width:auto;min-width:200px" onchange="tarefasSetFilter('projeto', this.value)">
-        <option value="">Todos os projetos</option>
-        ${projects.map(p => `<option value="${p.id}" ${tarefasFilterProjeto===p.id?"selected":""}>${p.name}</option>`).join("")}
-      </select>
-      <select class="inp-sm" style="width:auto;min-width:200px" onchange="tarefasSetFilter('resp', this.value)">
-        <option value="">Todas as pessoas</option>
-        ${allResp.map(n => `<option value="${n.replace(/"/g,'&quot;')}" ${tarefasFilterResp===n?"selected":""}>${n}</option>`).join("")}
-      </select>
-      ${(tarefasFilterStatus||tarefasFilterProjeto||tarefasFilterResp) ? `
-        <button onclick="tarefasFilterStatus='';tarefasFilterProjeto='';tarefasFilterResp='';render()"
+    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:grid;gap:8px">
+      ${chipMulti(tarefasFilterStatus,  allStatus, "toggleTarefasStatus",  "Status")}
+      ${chipMulti(tarefasFilterProjeto, projects,  "toggleTarefasProjeto", "Projeto", p=>p.id, p=>p.name)}
+      ${chipMulti(tarefasFilterResp,    allResp,   "toggleTarefasResp",    "Pessoa")}
+      ${chipsSemana}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;margin-top:2px">
+        <span style="font-size:12px;color:#9ca3af">${totalTarefas} tarefa${totalTarefas!==1?"s":""} em ${blocos.length} projeto${blocos.length!==1?"s":""}</span>
+        ${hasFilter ? `<button onclick="tarefasFilterStatus.clear();tarefasFilterProjeto.clear();tarefasFilterResp.clear();tarefasFilterSemana.clear();render()"
           style="padding:6px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#6b7280;font-size:11px;cursor:pointer;font-family:inherit">
-          Limpar filtros
+          Limpar todos os filtros
         </button>` : ""}
-      <div style="flex:1"></div>
-      <span style="font-size:12px;color:#9ca3af">${totalTarefas} tarefa${totalTarefas!==1?"s":""} em ${blocos.length} projeto${blocos.length!==1?"s":""}</span>
+      </div>
     </div>`;
 
   if(blocos.length === 0){
@@ -689,7 +693,7 @@ function dashExportCsv(){
       const macroIds = new Set(p.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
       tasks = tasks.filter(t=>macroIds.has(t.macroId));
     }
-    if(dashPeriodFilter !== "todos") tasks = tasks.filter(isTaskInPeriod);
+    if(dashWeekFilter.size > 0) tasks = tasks.filter(isTaskInPeriod);
     if(dashStatusFilter.size){
       tasks = tasks.filter(t => dashStatusFilter.has(isOverdue(t) ? "Atrasado" : t.status));
     }
@@ -742,7 +746,7 @@ function renderDashboard(){
       const macroIds = new Set(proj.macros.filter(m=>(m.tipo||"Implantação")===dashTipoFilter).map(m=>m.id));
       tasks = tasks.filter(t=>macroIds.has(t.macroId));
     }
-    if(!opts.ignorePeriod && dashPeriodFilter !== "todos"){
+    if(!opts.ignorePeriod && dashWeekFilter.size > 0){
       tasks = tasks.filter(isTaskInPeriod);
     }
     if(!opts.ignoreStatus && dashStatusFilter.size){
@@ -794,21 +798,24 @@ function renderDashboard(){
       }).join("")}
     </div>`;
 
-  const periodOpts = [
-    {v:"todos",l:"Todos"},
-    {v:"semana",l:"Esta semana"},
-    {v:"4semanas",l:"Próximas 4 semanas"},
-    {v:"mes",l:"Este mês"},
-    {v:"proximo-mes",l:"Próximo mês"},
-    {v:"3meses",l:"Próximos 3 meses"}
-  ];
-  const periodChips = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Período:</span>
-      ${periodOpts.map(o=>{
-        const on = dashPeriodFilter===o.v;
-        return `<button onclick="dashPeriodFilter='${o.v}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${o.l}</button>`;
-      }).join("")}
+  // Lista de semanas disponíveis: segundas-feiras das datas-fim de todas as tarefas.
+  const allWeeks = [...new Set(
+    projects.flatMap(p => p.tasks.map(t => getMondayOfWeek(t.end)).filter(Boolean))
+  )].sort();
+  const fmtWeek = iso => {
+    const [y,m,d] = iso.split("-");
+    return `${d}/${m}`;
+  };
+  const periodChips = allWeeks.length === 0 ? "" : `
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px;flex-shrink:0">Semana:</span>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex:1">
+        ${allWeeks.map(iso=>{
+          const on = dashWeekFilter.has(iso);
+          return `<button onclick="toggleDashWeek('${iso}')" title="Semana de ${fmtWeek(iso)}" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${fmtWeek(iso)}</button>`;
+        }).join("")}
+        ${dashWeekFilter.size>0?`<button onclick="toggleDashWeek('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">✕ limpar</button>`:""}
+      </div>
     </div>`;
 
   const filterBar = `
@@ -2638,7 +2645,6 @@ db.ref(".info/connected").on("value", snap => {
 // ── AUTH + INIT ───────────────────────────────────────────────────────────────
 function setLoadingState(){
   document.getElementById("content").innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
       <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
     </div>`;
@@ -2658,7 +2664,7 @@ function setupAuthUI(){
         await auth.signInWithPopup(provider);
       } catch (err) {
         console.error("Google sign-in error:", err);
-        errorEl.textContent = "Não foi possível entrar com Google. Verifique se o provedor está habilitado no Firebase.";
+        errorEl.textContent = "Nao foi possivel entrar com Google. Verifique se o provedor esta habilitado no Firebase.";
       } finally {
         loginBtn.disabled = false;
         loginBtn.innerHTML = '<span class="google-icon">G</span> Entrar com Google';
@@ -2687,7 +2693,7 @@ auth.onAuthStateChanged(user => {
   authScreen?.classList.add("hidden");
   if (app) app.style.visibility = "visible";
   if (userbar) userbar.style.display = "flex";
-  if (userName) userName.textContent = user.displayName || user.email || "Usuário";
+  if (userName) userName.textContent = user.displayName || user.email || "Usuario";
   setLoadingState();
   startFirebaseSync();
 });
