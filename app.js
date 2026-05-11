@@ -372,11 +372,28 @@ let tarefasFilterStatus  = new Set();
 let tarefasFilterProjeto = new Set();
 let tarefasFilterResp    = new Set();
 let tarefasFilterSemana  = new Set(); // segundas-feiras (ISO) das semanas selecionadas
+let tarefasOpenDropdown  = null;      // 'status' | 'projeto' | 'resp' | 'semana' | null
 
 function toggleTarefasStatus(v){if(v==="__clear__")tarefasFilterStatus.clear();else{if(tarefasFilterStatus.has(v))tarefasFilterStatus.delete(v);else tarefasFilterStatus.add(v);}render();}
 function toggleTarefasProjeto(v){if(v==="__clear__")tarefasFilterProjeto.clear();else{if(tarefasFilterProjeto.has(v))tarefasFilterProjeto.delete(v);else tarefasFilterProjeto.add(v);}render();}
 function toggleTarefasResp(v){if(v==="__clear__")tarefasFilterResp.clear();else{if(tarefasFilterResp.has(v))tarefasFilterResp.delete(v);else tarefasFilterResp.add(v);}render();}
 function toggleTarefasSemana(v){if(v==="__clear__")tarefasFilterSemana.clear();else{if(tarefasFilterSemana.has(v))tarefasFilterSemana.delete(v);else tarefasFilterSemana.add(v);}render();}
+
+function tarefasToggleDropdown(name, ev){
+  if(ev) ev.stopPropagation();
+  tarefasOpenDropdown = tarefasOpenDropdown === name ? null : name;
+  render();
+}
+
+// Handler global: clicar fora fecha qualquer dropdown aberto da aba Tarefas.
+// Instala apenas uma vez por sessão; é inofensivo em outras páginas pois só age
+// quando há um dropdown aberto.
+if(typeof window !== "undefined" && !window._tarefasOutsideInstalled){
+  window._tarefasOutsideInstalled = true;
+  document.addEventListener("click", () => {
+    if(tarefasOpenDropdown !== null){ tarefasOpenDropdown = null; render(); }
+  });
+}
 
 // Abre o modal de tarefa garantindo que o currentProjectId está no projeto certo.
 function openTaskFromTarefas(projId, taskId){
@@ -433,40 +450,66 @@ function renderTarefas(){
     return `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${bg};color:${fg};white-space:nowrap">${label}</span>`;
   };
 
-  // Helper local de chips multi-select (mesmo padrão do dashboard).
-  const chipMulti = (set, options, fnName, label, valFn, labelFn) => `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:84px">${label}:</span>
-      ${options.map(opt=>{
-        const v  = valFn   ? valFn(opt)   : opt;
-        const l  = labelFn ? labelFn(opt) : opt;
-        const on = set.has(v);
-        return `<button onclick="${fnName}('${String(v).replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit">${l}</button>`;
-      }).join("")}
-      ${set.size>0?`<button onclick="${fnName}('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit">✕ limpar</button>`:""}
-    </div>`;
+  // Helper: dropdown multi-select. Botão mostra label + contagem; ao clicar abre
+  // painel com checkboxes. Clique fora fecha (via handler global instalado acima).
+  const dropdown = (name, label, set, options, fnName, valFn, labelFn, summaryFn) => {
+    const open  = tarefasOpenDropdown === name;
+    const count = set.size;
+    const summary = count === 0
+      ? `<span style="color:#9ca3af">Todos</span>`
+      : (summaryFn ? summaryFn(set) : `<span style="color:#6366f1;font-weight:600">${count} selecionado${count!==1?"s":""}</span>`);
+    const optionsHtml = options.length === 0
+      ? `<div style="padding:8px 10px;font-size:12px;color:#9ca3af;text-align:center">Nenhuma opção</div>`
+      : options.map(opt => {
+          const v = valFn   ? valFn(opt)   : opt;
+          const l = labelFn ? labelFn(opt) : opt;
+          const checked = set.has(v);
+          const safeV = String(v).replace(/'/g,"\\'");
+          return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:4px;font-size:12px;color:#374151"
+            onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" ${checked?"checked":""} onclick="event.stopPropagation();${fnName}('${safeV}')"
+              style="margin:0;cursor:pointer;accent-color:#6366f1"/>
+            <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</span>
+          </label>`;
+        }).join("");
+    return `
+      <div style="position:relative;flex:1 1 200px;min-width:180px;max-width:280px">
+        <button onclick="tarefasToggleDropdown('${name}', event)"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:6px;border:1px solid ${open||count>0?'#6366f1':'#e5e7eb'};background:#fff;color:#374151;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+          <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:1;min-width:0;text-align:left">
+            <span style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:600">${label}</span>
+            <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%">${summary}</span>
+          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;transition:transform .15s;${open?'transform:rotate(180deg)':''}"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        ${open ? `
+          <div onclick="event.stopPropagation()"
+            style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;z-index:50;max-height:300px;overflow-y:auto;min-width:200px">
+            ${count>0?`<div style="display:flex;justify-content:flex-end;padding:2px 6px 4px;border-bottom:1px solid #f3f4f6;margin-bottom:4px">
+              <button onclick="event.stopPropagation();${fnName}('__clear__')" style="padding:3px 8px;font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:600">✕ Limpar seleção</button>
+            </div>`:""}
+            ${optionsHtml}
+          </div>` : ""}
+      </div>`;
+  };
 
-  // Chips de semana (lista pode ser longa — usa scroll horizontal).
-  const chipsSemana = allSemanas.length === 0 ? "" : `
-    <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:84px;flex-shrink:0">Semana:</span>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex:1">
-        ${allSemanas.map(iso=>{
-          const on = tarefasFilterSemana.has(iso);
-          return `<button onclick="toggleTarefasSemana('${iso}')" title="Semana de ${fmtSemana(iso)}" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${fmtSemana(iso)}</button>`;
-        }).join("")}
-        ${tarefasFilterSemana.size>0?`<button onclick="toggleTarefasSemana('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">✕ limpar</button>`:""}
-      </div>
-    </div>`;
+  // Resumo dos selecionados (mostra até 2 nomes, depois "+N")
+  const summaryNames = (set, getName) => {
+    const arr = [...set].map(getName).filter(Boolean);
+    if(arr.length <= 2) return `<span style="color:#374151;font-weight:600">${arr.join(", ")}</span>`;
+    return `<span style="color:#374151;font-weight:600">${arr.slice(0,2).join(", ")}</span><span style="color:#9ca3af"> +${arr.length-2}</span>`;
+  };
+
+  const projectName = id => (projects.find(p=>p.id===id)||{}).name || id;
 
   const hasFilter = tarefasFilterStatus.size||tarefasFilterProjeto.size||tarefasFilterResp.size||tarefasFilterSemana.size;
   const filterBar = `
-    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:grid;gap:8px">
-      ${chipMulti(tarefasFilterStatus,  allStatus, "toggleTarefasStatus",  "Status")}
-      ${chipMulti(tarefasFilterProjeto, projects,  "toggleTarefasProjeto", "Projeto", p=>p.id, p=>p.name)}
-      ${chipMulti(tarefasFilterResp,    allResp,   "toggleTarefasResp",    "Pessoa")}
-      ${chipsSemana}
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;margin-top:2px">
+    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+      ${dropdown("status",  "Status",  tarefasFilterStatus,  allStatus, "toggleTarefasStatus",  null,        null,        s=>summaryNames(s, x=>x))}
+      ${dropdown("projeto", "Projeto", tarefasFilterProjeto, projects,  "toggleTarefasProjeto", p=>p.id,     p=>p.name,   s=>summaryNames(s, projectName))}
+      ${dropdown("resp",    "Pessoa",  tarefasFilterResp,    allResp,   "toggleTarefasResp",    null,        null,        s=>summaryNames(s, x=>x))}
+      ${allSemanas.length ? dropdown("semana", "Semana", tarefasFilterSemana, allSemanas, "toggleTarefasSemana", null, iso=>fmtSemana(iso), s=>summaryNames(s, fmtSemana)) : ""}
+      <div style="flex:1 1 100%;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-top:2px">
         <span style="font-size:12px;color:#9ca3af">${totalTarefas} tarefa${totalTarefas!==1?"s":""} em ${blocos.length} projeto${blocos.length!==1?"s":""}</span>
         ${hasFilter ? `<button onclick="tarefasFilterStatus.clear();tarefasFilterProjeto.clear();tarefasFilterResp.clear();tarefasFilterSemana.clear();render()"
           style="padding:6px 12px;border-radius:6px;border:1px solid #e5e7eb;background:#fff;color:#6b7280;font-size:11px;cursor:pointer;font-family:inherit">
@@ -2645,6 +2688,7 @@ db.ref(".info/connected").on("value", snap => {
 // ── AUTH + INIT ───────────────────────────────────────────────────────────────
 function setLoadingState(){
   document.getElementById("content").innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:14px;color:#9ca3af">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
       <span style="font-size:14px;font-weight:600;color:#6366f1">Carregando dados...</span>
     </div>`;
