@@ -321,6 +321,13 @@ function toggleDashEtapa(v){if(v==="__clear__")dashEtapaFilter.clear();else{if(d
 function toggleDashFarmer(v){if(v==="__clear__")dashFarmerFilter.clear();else{if(dashFarmerFilter.has(v))dashFarmerFilter.delete(v);else dashFarmerFilter.add(v);}render();}
 function toggleDashWeek(v){if(v==="__clear__")dashWeekFilter.clear();else{if(dashWeekFilter.has(v))dashWeekFilter.delete(v);else dashWeekFilter.add(v);}render();}
 
+let dashOpenDropdown = null; // qual dropdown do dashboard esta aberto
+function dashToggleDropdown(name, ev){
+  if(ev) ev.stopPropagation();
+  dashOpenDropdown = dashOpenDropdown === name ? null : name;
+  render();
+}
+
 // Look up produto/etapa from the alloc projects table by matching the implant project name
 function getProjectMeta(projName){
   const ap = allocProjects.find(a => a.nome === projName);
@@ -391,7 +398,10 @@ function tarefasToggleDropdown(name, ev){
 if(typeof window !== "undefined" && !window._tarefasOutsideInstalled){
   window._tarefasOutsideInstalled = true;
   document.addEventListener("click", () => {
-    if(tarefasOpenDropdown !== null){ tarefasOpenDropdown = null; render(); }
+    let changed = false;
+    if(tarefasOpenDropdown !== null){ tarefasOpenDropdown = null; changed = true; }
+    if(dashOpenDropdown    !== null){ dashOpenDropdown    = null; changed = true; }
+    if(changed) render();
   });
 }
 
@@ -809,69 +819,115 @@ function renderDashboard(){
   // não esconder opções quando o usuário aperta um chip)
   const allFarmers   = [...new Set(projects.flatMap(p=>getProjectFarmers(p.name)))].filter(Boolean).sort();
 
-  // Reusable chip-set renderer for multi-select filters
-  const chipMulti = (set, options, fnName, label, prefixIcon) => `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">${label}:</span>
-      ${options.map(opt=>{
-        const v  = typeof opt === "string" ? opt : opt.value;
-        const l  = typeof opt === "string" ? opt : opt.label;
-        const on = set.has(v);
-        return `<button onclick="${fnName}('${v.replace(/'/g,"\\'")}')" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${prefixIcon?prefixIcon(v):""}${l}</button>`;
-      }).join("")}
-      ${set.size>0?`<button onclick="${fnName}('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit">✕ limpar</button>`:""}
-    </div>`;
-
-  const tipoChips = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Tipo:</span>
-      ${["Todos","Implantação","Sustentação"].map(opt=>{
-        const on = dashTipoFilter===opt;
-        const ic = opt==='Implantação'?'📋 ':opt==='Sustentação'?'🔧 ':'';
-        return `<button onclick="dashTipoFilter='${opt}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${ic}${opt}</button>`;
-      }).join("")}
-    </div>`;
-
-  const variavelChips = `
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px">Variável:</span>
-      ${[{v:"count",l:"Qtd. de tarefas"},{v:"esforco",l:"Somatório de esforço"}].map(o=>{
-        const on = dashVariavel===o.v;
-        return `<button onclick="dashVariavel='${o.v}';render()" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;transition:all .13s">${o.l}</button>`;
-      }).join("")}
-    </div>`;
-
   // Lista de semanas disponíveis: segundas-feiras das datas-fim de todas as tarefas.
   const allWeeks = [...new Set(
     projects.flatMap(p => p.tasks.map(t => getMondayOfWeek(t.end)).filter(Boolean))
   )].sort();
-  const fmtWeek = iso => {
-    const [y,m,d] = iso.split("-");
-    return `${d}/${m}`;
+  const fmtWeek = iso => { const [y,m,d] = iso.split("-"); return `${d}/${m}`; };
+
+  // Resumo do que está selecionado em um Set (até 2 nomes + "+N")
+  const summarySet = (set, getLabel) => {
+    const arr = [...set].map(getLabel).filter(Boolean);
+    if(arr.length <= 2) return `<span style="color:#374151;font-weight:600">${arr.join(", ")}</span>`;
+    return `<span style="color:#374151;font-weight:600">${arr.slice(0,2).join(", ")}</span><span style="color:#9ca3af"> +${arr.length-2}</span>`;
   };
-  const periodChips = allWeeks.length === 0 ? "" : `
-    <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:11px;color:#6b7280;font-weight:600;min-width:74px;flex-shrink:0">Semana:</span>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;flex:1">
-        ${allWeeks.map(iso=>{
-          const on = dashWeekFilter.has(iso);
-          return `<button onclick="toggleDashWeek('${iso}')" title="Semana de ${fmtWeek(iso)}" style="padding:4px 10px;border-radius:20px;border:1px solid ${on?'#6366f1':'#e5e7eb'};background:${on?'#eef2ff':'#fff'};color:${on?'#6366f1':'#6b7280'};font-size:11px;font-weight:${on?700:500};cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">${fmtWeek(iso)}</button>`;
-        }).join("")}
-        ${dashWeekFilter.size>0?`<button onclick="toggleDashWeek('__clear__')" style="padding:4px 8px;border-radius:20px;border:1px solid #e5e7eb;background:#fff;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap">✕ limpar</button>`:""}
-      </div>
-    </div>`;
+
+  // Dropdown MULTI-select (checkboxes)
+  const ddMulti = (name, label, set, options, fnName, valFn, labelFn) => {
+    const open = dashOpenDropdown === name;
+    const count = set.size;
+    const summary = count === 0
+      ? `<span style="color:#9ca3af">Todos</span>`
+      : summarySet(set, v => {
+          const opt = options.find(o => (valFn?valFn(o):o) === v);
+          return opt ? (labelFn?labelFn(opt):opt) : v;
+        });
+    const optsHtml = options.length === 0
+      ? `<div style="padding:8px 10px;font-size:12px;color:#9ca3af;text-align:center">Nenhuma opção</div>`
+      : options.map(opt => {
+          const v = valFn   ? valFn(opt)   : opt;
+          const l = labelFn ? labelFn(opt) : opt;
+          const checked = set.has(v);
+          const safeV = String(v).replace(/'/g,"\\'");
+          return `<label style="display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;border-radius:4px;font-size:12px;color:#374151" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" ${checked?"checked":""} onclick="event.stopPropagation();${fnName}('${safeV}')" style="margin:0;cursor:pointer;accent-color:#6366f1"/>
+            <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${l}</span>
+          </label>`;
+        }).join("");
+    return `
+      <div style="position:relative;flex:1 1 180px;min-width:160px;max-width:260px">
+        <button onclick="dashToggleDropdown('${name}', event)"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:6px;border:1px solid ${open||count>0?'#6366f1':'#e5e7eb'};background:#fff;color:#374151;font-size:12px;cursor:pointer;font-family:inherit">
+          <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:1;min-width:0;text-align:left">
+            <span style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:600">${label}</span>
+            <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%">${summary}</span>
+          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;${open?'transform:rotate(180deg)':''}"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        ${open ? `
+          <div onclick="event.stopPropagation()"
+            style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;z-index:50;max-height:320px;overflow-y:auto;min-width:200px">
+            ${count>0?`<div style="display:flex;justify-content:flex-end;padding:2px 6px 4px;border-bottom:1px solid #f3f4f6;margin-bottom:4px">
+              <button onclick="event.stopPropagation();${fnName}('__clear__')" style="padding:3px 8px;font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer;font-family:inherit;font-weight:600">✕ Limpar seleção</button>
+            </div>`:""}
+            ${optsHtml}
+          </div>` : ""}
+      </div>`;
+  };
+
+  // Dropdown SINGLE-select (radio-style — clicar fecha)
+  const ddSingle = (name, label, current, options) => {
+    const open = dashOpenDropdown === name;
+    const currentOpt = options.find(o => o.v === current);
+    const summary = `<span style="color:#374151;font-weight:600">${currentOpt ? currentOpt.l : current}</span>`;
+    const optsHtml = options.map(o => {
+      const sel = o.v === current;
+      return `<button onclick="event.stopPropagation();${o.setExpr};dashOpenDropdown=null;render()"
+        style="display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border-radius:4px;font-size:12px;background:${sel?'#eef2ff':'#fff'};color:${sel?'#6366f1':'#374151'};border:none;cursor:pointer;font-family:inherit;font-weight:${sel?700:500};text-align:left"
+        onmouseover="if(!${sel})this.style.background='#f9fafb'" onmouseout="if(!${sel})this.style.background='#fff'">
+        <span style="width:14px;display:inline-flex;justify-content:center;color:#6366f1">${sel?"●":"○"}</span>
+        <span style="flex:1">${o.l}</span>
+      </button>`;
+    }).join("");
+    return `
+      <div style="position:relative;flex:1 1 180px;min-width:160px;max-width:260px">
+        <button onclick="dashToggleDropdown('${name}', event)"
+          style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-radius:6px;border:1px solid ${open?'#6366f1':'#e5e7eb'};background:#fff;color:#374151;font-size:12px;cursor:pointer;font-family:inherit">
+          <span style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:1;min-width:0;text-align:left">
+            <span style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;font-weight:600">${label}</span>
+            <span style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%">${summary}</span>
+          </span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;${open?'transform:rotate(180deg)':''}"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        ${open ? `
+          <div onclick="event.stopPropagation()"
+            style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:6px;z-index:50;min-width:200px;display:flex;flex-direction:column;gap:2px">
+            ${optsHtml}
+          </div>` : ""}
+      </div>`;
+  };
+
+  const tipoOptions = [
+    {v:"Todos",       l:"Todos",        setExpr:"dashTipoFilter='Todos'"},
+    {v:"Implantação", l:"📋 Implantação", setExpr:"dashTipoFilter='Implantação'"},
+    {v:"Sustentação", l:"🔧 Sustentação", setExpr:"dashTipoFilter='Sustentação'"},
+  ];
+  const variavelOptions = [
+    {v:"count",   l:"Qtd. de tarefas",      setExpr:"dashVariavel='count'"},
+    {v:"esforco", l:"Somatório de esforço", setExpr:"dashVariavel='esforco'"},
+  ];
 
   const filterBar = `
-    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:grid;gap:8px">
-      ${tipoChips}
-      ${chipMulti(dashStatusFilter,  STATUS_OPTS,  "toggleDashStatus",  "Status")}
-      ${chipMulti(dashProdutoFilter, allProdutos,  "toggleDashProduto", "Produto")}
-      ${chipMulti(dashEtapaFilter,   allEtapas,    "toggleDashEtapa",   "Etapa")}
-      ${allFarmers.length ? chipMulti(dashFarmerFilter, allFarmers, "toggleDashFarmer", "Farmer") : ""}
-      ${periodChips}
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between">
-        ${variavelChips}
-        <button onclick="dashExportCsv()" style="padding:6px 12px;border-radius:6px;border:1px solid #6366f1;background:#fff;color:#6366f1;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">⬇ Exportar CSV</button>
+    <div class="card" style="padding:14px 16px;margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+      ${ddSingle("tipo",     "Tipo",     dashTipoFilter, tipoOptions)}
+      ${ddMulti("status",    "Status",   dashStatusFilter,  STATUS_OPTS,  "toggleDashStatus")}
+      ${ddMulti("produto",   "Produto",  dashProdutoFilter, allProdutos,  "toggleDashProduto")}
+      ${ddMulti("etapa",     "Etapa",    dashEtapaFilter,   allEtapas,    "toggleDashEtapa")}
+      ${allFarmers.length ? ddMulti("farmer", "Farmer", dashFarmerFilter, allFarmers, "toggleDashFarmer") : ""}
+      ${allWeeks.length    ? ddMulti("semana", "Semana", dashWeekFilter,   allWeeks,    "toggleDashWeek",    null, fmtWeek) : ""}
+      ${ddSingle("variavel", "Variável", dashVariavel,   variavelOptions)}
+      <div style="margin-left:auto;display:flex;align-items:center">
+        <button onclick="event.stopPropagation();dashExportCsv()" style="padding:8px 14px;border-radius:6px;border:1px solid #6366f1;background:#fff;color:#6366f1;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px">⬇ Exportar CSV</button>
       </div>
     </div>`;
 
@@ -1593,6 +1649,9 @@ function saveSettingsInline(){
   const p=getProject();if(!p)return;
   p.linearApiKey=document.getElementById("sch-apikey").value.trim();
   p.linearProjectId=document.getElementById("sch-projectid").value.trim();
+  // Persiste no Firebase ANTES de buscar issues. Sem isso, dar refresh perdia
+  // a chave + UUID — fetchLinear apenas armazenava em memória.
+  if(typeof fbSaveProjects === "function") fbSaveProjects();
   fetchLinear();
 }
 async function fetchLinear(){
@@ -2676,9 +2735,9 @@ db.ref("vacancies").on("value", snap => {
 // ── Connection indicator ───────────────────────────────────────────────────────
 db.ref(".info/connected").on("value", snap => {
   if (snap.val() === true) {
-    showSyncToast("🟢 Conectado ao Firebase", "#10b981");
+    showSyncToast("Conectado ao Firebase", "#10b981");
   } else {
-    showSyncToast("🔴 Sem conexão — alterações serão sincronizadas ao reconectar", "#ef4444");
+    showSyncToast("Sem conexao - alteracoes sincronizadas ao reconectar", "#ef4444");
   }
 });
 
@@ -2705,7 +2764,16 @@ function setupAuthUI(){
       loginBtn.textContent = "Entrando...";
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
+        // hd=rivio.com.br no picker do Google ja restringe contas exibidas;
+        // a checagem no client abaixo bloqueia qualquer escape.
+        provider.setCustomParameters({ hd: "rivio.com.br" });
+        const result = await auth.signInWithPopup(provider);
+        const email = (result.user && result.user.email ? result.user.email : "").toLowerCase();
+        if(!email.endsWith("@rivio.com.br")){
+          await auth.signOut();
+          errorEl.textContent = "Acesso restrito a contas @rivio.com.br. Faca login com uma conta corporativa.";
+          return;
+        }
       } catch (err) {
         console.error("Google sign-in error:", err);
         errorEl.textContent = "Nao foi possivel entrar com Google. Verifique se o provedor esta habilitado no Firebase.";
@@ -2731,6 +2799,14 @@ auth.onAuthStateChanged(user => {
     authScreen?.classList.remove("hidden");
     if (app) app.style.visibility = "hidden";
     if (userbar) userbar.style.display = "none";
+    return;
+  }
+
+  // Reforco: se a sessao restaurada nao for @rivio.com.br, desloga.
+  if(user.email && !user.email.toLowerCase().endsWith("@rivio.com.br")){
+    auth.signOut();
+    const errorEl = document.getElementById("auth-error");
+    if(errorEl) errorEl.textContent = "Acesso restrito a contas @rivio.com.br.";
     return;
   }
 
