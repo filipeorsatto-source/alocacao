@@ -88,7 +88,18 @@ function fmtDate(s){
   return d.toLocaleDateString("pt-BR");
 }
 function initials(name){ if(!name)return"?"; return name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase(); }
-function isOverdue(t){ return t.status!=="Finalizado" && t.end<todayStr(); }
+// Data de prazo "planejada original": se a tarefa tem originalEnd preenchida,
+// usa ela; senao, cai no t.end. Todos os KPIs de atraso/prazo usam essa data.
+function plannedEnd(t){ return t.originalEnd && t.originalEnd.length ? t.originalEnd : t.end; }
+function isOverdue(t){ const p = plannedEnd(t); return t.status!=="Finalizado" && p && p<todayStr(); }
+// Macros ordenadas pelo campo "order" (asc), com fallback para o id (legado).
+function sortedMacros(p){
+  return [...p.macros].sort((a,b)=>{
+    const oa = (typeof a.order === "number") ? a.order : (a.id||0)*1000;
+    const ob = (typeof b.order === "number") ? b.order : (b.id||0)*1000;
+    return oa - ob;
+  });
+}
 function calcProgress(tks){
   const total=tks.reduce((s,t)=>s+t.effort,0);
   const done=tks.filter(t=>t.status==="Finalizado").reduce((s,t)=>s+t.effort,0);
@@ -609,6 +620,7 @@ function buildBaseRows(){
         subetapa:   t.subetapa || "",
         tarefa:     t.name || "",
         inicio:     t.start || "",
+        fimOriginal:t.originalEnd || "",
         fim:        t.end || "",
         conclusao:  t.completedAt || "",
         esforco:    Number(t.effort) || 0,
@@ -631,9 +643,9 @@ function baseSetSearch(v){ baseSearchTerm = (v||"").trim().toLowerCase(); render
 
 function baseExport(){
   const rows = buildBaseRows();
-  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim","Data Conclusão","Esforço","Responsável","Área do Responsável","Status"];
+  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim Original","Data Fim","Data Conclusão","Esforço","Responsável","Área do Responsável","Status"];
   const matrix = [header, ...rows.map(r => [
-    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fim, r.conclusao, r.esforco, r.responsavel, r.areaResp, r.status
+    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fimOriginal, r.fim, r.conclusao, r.esforco, r.responsavel, r.areaResp, r.status
   ])];
   const csv = matrix.map(line => line.map(cell => {
     const s = String(cell ?? "");
@@ -670,9 +682,10 @@ function renderBase(){
     { key:"macro",       label:"Macro Etapa" },
     { key:"subetapa",    label:"Subetapa" },
     { key:"tarefa",      label:"Tarefa" },
-    { key:"inicio",      label:"Data Início",    fmt:fmtDate },
-    { key:"fim",         label:"Data Fim",       fmt:fmtDate },
-    { key:"conclusao",   label:"Data Conclusão", fmt:fmtDate },
+    { key:"inicio",      label:"Data Início",       fmt:fmtDate },
+    { key:"fimOriginal", label:"Data Fim Original", fmt:fmtDate },
+    { key:"fim",         label:"Data Fim",          fmt:fmtDate },
+    { key:"conclusao",   label:"Data Conclusão",    fmt:fmtDate },
     { key:"esforco",     label:"Esforço",        align:"center" },
     { key:"responsavel", label:"Responsável" },
     { key:"areaResp",    label:"Área" },
@@ -738,7 +751,7 @@ function dashExportCsv(){
     }
     return true;
   });
-  const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim","Conclusão","Esforço","Atrasada"]];
+  const rows = [["Projeto","Produto","Etapa","Macroetapa","Tarefa","Responsável","Status","Início","Fim Original","Fim","Conclusão","Esforço","Atrasada"]];
   filteredProjs.forEach(p => {
     const meta = getProjectMeta(p.name);
     let tasks = p.tasks;
@@ -752,7 +765,7 @@ function dashExportCsv(){
     }
     tasks.forEach(t => {
       const macro = (p.macros.find(m=>m.id===t.macroId)||{}).name || "";
-      rows.push([p.name, meta.produto, meta.etapa, macro, t.name, t.responsible||"", t.status||"", t.start||"", t.end||"", t.completedAt||"", Number(t.effort)||0, isOverdue(t)?"Sim":"Não"]);
+      rows.push([p.name, meta.produto, meta.etapa, macro, t.name, t.responsible||"", t.status||"", t.start||"", t.originalEnd||"", t.end||"", t.completedAt||"", Number(t.effort)||0, isOverdue(t)?"Sim":"Não"]);
     });
   });
   const csv = rows.map(r => r.map(cell => {
@@ -964,8 +977,8 @@ function renderDashboard(){
     const pct   = total===0 ? 0 : Math.round((fin/total)*100);
     // % no prazo: dentre as tarefas finalizadas, quantas tiveram completedAt <= end.
     // Para tarefas legadas sem completedAt, usa end como fallback (conta como no prazo).
-    const finishedTasks = tasks.filter(t=>t.status==="Finalizado" && t.end);
-    const onTimeTasks   = finishedTasks.filter(t=>(t.completedAt || t.end) <= t.end);
+    const finishedTasks = tasks.filter(t=>t.status==="Finalizado" && plannedEnd(t));
+    const onTimeTasks   = finishedTasks.filter(t=>(t.completedAt || t.end) <= plannedEnd(t));
     const onTimeBase    = dashValueOf(finishedTasks);
     const onTimeVal     = dashValueOf(onTimeTasks);
     const onTimePct     = onTimeBase===0 ? null : Math.round((onTimeVal/onTimeBase)*100);
@@ -1154,7 +1167,7 @@ function renderDashboard(){
       if(!onTimeByResp[r]) onTimeByResp[r] = { onTime:0, total:0 };
       const inc = dashVariavel === "esforco" ? (Number(t.effort)||0) : 1;
       onTimeByResp[r].total += inc;
-      if((t.completedAt || t.end) <= t.end) onTimeByResp[r].onTime += inc;
+      if((t.completedAt || t.end) <= plannedEnd(t)) onTimeByResp[r].onTime += inc;
     });
   });
   const onTimeRespData = Object.entries(onTimeByResp)
@@ -1194,7 +1207,8 @@ function renderDashboard(){
   filteredProjects.forEach(p => {
     filteredTasks(p, {ignoreStatus:true}).forEach(t => {
       if(!isOverdue(t)) return;
-      const endDate = new Date(t.end+"T00:00:00");
+      const planned = plannedEnd(t);
+      const endDate = new Date(planned+"T00:00:00");
       const daysLate = Math.floor((todayD - endDate)/(1000*60*60*24));
       overdueList.push({ task:t, projName:p.name, daysLate });
     });
@@ -1357,7 +1371,7 @@ function renderSchedule(){
       </div>
     </div>`:""}
 
-    ${p.macros.map(m=>renderMacroBlock(p,m)).join("")}
+    ${sortedMacros(p).map((m,idx,arr)=>renderMacroBlock(p,m,idx,arr.length)).join("")}
 
     <div style="margin-top:32px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
       <h2 style="font-size:16px;font-weight:700;color:#111;margin:0">Linha do tempo</h2>
@@ -1388,12 +1402,16 @@ function renderSchedule(){
   `;
 }
 
-function renderMacroBlock(p,m){
+function renderMacroBlock(p,m,idx,total){
   const mts=p.tasks.filter(t=>t.macroId===m.id);
   const pct=calcProgress(mts);
   const isExp=p.expandedMacros.has(m.id);
   const iconEdit=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
   const iconTrash=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+  const canUp   = idx !== undefined && idx > 0;
+  const canDown = idx !== undefined && total !== undefined && idx < total - 1;
+  const iconUp   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>`;
+  const iconDown = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
   return `
     <div class="macro-block">
       <div class="macro-header" onclick="toggleMacro(${m.id})" style="gap:10px">
@@ -1403,6 +1421,8 @@ function renderMacroBlock(p,m){
             <span style="font-weight:700;font-size:14px;color:#111">${m.name}</span>
             <div style="display:flex;align-items:center;gap:8px">
               <span style="font-size:13px;font-weight:800;color:${m.color}">${pct}%</span>
+              <button class="btn-ghost" title="Mover para cima" onclick="event.stopPropagation();moveMacro(${m.id},-1)" style="color:${canUp?'#6b7280':'#e5e7eb'};${canUp?'':'pointer-events:none'}">${iconUp}</button>
+              <button class="btn-ghost" title="Mover para baixo" onclick="event.stopPropagation();moveMacro(${m.id},1)" style="color:${canDown?'#6b7280':'#e5e7eb'};${canDown?'':'pointer-events:none'}">${iconDown}</button>
               <button class="btn-ghost" onclick="event.stopPropagation();openMacroModal(${m.id})">${iconEdit}</button>
               <button class="btn-ghost" onclick="event.stopPropagation();deleteMacro(${m.id})" style="color:#d1d5db">${iconTrash}</button>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">${isExp?'<polyline points="6 9 12 15 18 9"/>':'<polyline points="9 18 15 12 9 6"/>'}</svg>
@@ -1508,8 +1528,14 @@ function buildGanttHTML(p){
   const gridLines=weeks.map(w=>`<div style="position:absolute;left:${w.p}%;top:0;bottom:0;width:1px;background:#f0f0f0;pointer-events:none"></div>`).join("");
   const gridLinesLight=weeks.map(w=>`<div style="position:absolute;left:${w.p}%;top:0;bottom:0;width:1px;background:#f5f5f5;pointer-events:none"></div>`).join("");
   let rows="";
-  p.macros.forEach(m=>{
-    const mts=p.tasks.filter(t=>t.macroId===m.id);
+  sortedMacros(p).forEach(m=>{
+    // Tarefas sempre em ordem cronologica pelo Inicio (asc); fim como tie-breaker.
+    const mts=p.tasks.filter(t=>t.macroId===m.id).sort((a,b)=>{
+      const sa = a.start || "";
+      const sb = b.start || "";
+      if(sa !== sb) return sa.localeCompare(sb);
+      return (a.end||"").localeCompare(b.end||"");
+    });
     if(!mts.length)return;
     const macroStart=mts.reduce((mn,t)=>t.start<mn?t.start:mn,mts[0].start);
     const macroEnd=mts.reduce((mx,t)=>t.end>mx?t.end:mx,mts[0].end);
@@ -1711,10 +1737,26 @@ function saveMacro(){
     if(m){m.name=name;m.color=color;m.subetapas=[...macroModalSubs];m.tipo=tipo;}
   }else{
     const newId=Math.max(0,...p.macros.map(x=>x.id))+1;
-    p.macros.push({id:newId,name,color,subetapas:[...macroModalSubs],tipo});
+    // Nova macro entra ao final da ordem atual.
+    const maxOrder = p.macros.reduce((mx,x)=> Math.max(mx, typeof x.order==="number"?x.order:0), 0);
+    p.macros.push({id:newId,name,color,subetapas:[...macroModalSubs],tipo,order:maxOrder+1});
     p.expandedMacros.add(newId);p.expandedGantt.add(newId);
   }
   closeMacroModal();render();
+}
+// Move uma macro para cima (-1) ou para baixo (+1) na ordem.
+function moveMacro(id, direction){
+  const p=getProject();if(!p)return;
+  const ordered = sortedMacros(p);
+  const idx = ordered.findIndex(m=>m.id===id);
+  const swapIdx = idx + direction;
+  if(idx<0 || swapIdx<0 || swapIdx>=ordered.length) return;
+  // Normaliza orders por posicao 1..N para evitar empates/legado faltando
+  ordered.forEach((m,i)=>{ m.order = i; });
+  // Swap
+  const a = ordered[idx], b = ordered[swapIdx];
+  const tmp = a.order; a.order = b.order; b.order = tmp;
+  render();
 }
 function deleteMacro(id){
   const p=getProject();if(!p)return;
@@ -1754,12 +1796,13 @@ function openModal(macroIdHint,taskId){
   document.getElementById("f-name").value=task?task.name:"";
   document.getElementById("f-start").value=task?task.start:todayStr();
   document.getElementById("f-end").value=task?task.end:addDays(todayStr(),7);
+  document.getElementById("f-end-original").value=task?(task.originalEnd||""):"";
   document.getElementById("f-completed").value=task?(task.completedAt||""):"";
   document.getElementById("f-effort").value=task?task.effort:3;
   document.getElementById("f-desc").value=task?task.description:"";
   document.getElementById("f-notes").value=task?task.notes:"";
   const macroSel=document.getElementById("f-macro");
-  macroSel.innerHTML=p.macros.map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
+  macroSel.innerHTML=sortedMacros(p).map(m=>`<option value="${m.id}">${m.name}</option>`).join("");
   const targetMacro=task?task.macroId:(macroIdHint||p.macros[0]?.id||1);
   macroSel.value=targetMacro;
   updateSubetapas();
@@ -1852,6 +1895,7 @@ function saveTask(){
     subetapa:subetapaVal,
     start:document.getElementById("f-start").value,
     end:document.getElementById("f-end").value,
+    originalEnd:document.getElementById("f-end-original").value || "",
     completedAt,
     status,
     responsible:document.getElementById("f-resp").value||"",
@@ -2764,8 +2808,6 @@ function setupAuthUI(){
       loginBtn.textContent = "Entrando...";
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        // hd=rivio.com.br no picker do Google ja restringe contas exibidas;
-        // a checagem no client abaixo bloqueia qualquer escape.
         provider.setCustomParameters({ hd: "rivio.com.br" });
         const result = await auth.signInWithPopup(provider);
         const email = (result.user && result.user.email ? result.user.email : "").toLowerCase();
@@ -2802,7 +2844,6 @@ auth.onAuthStateChanged(user => {
     return;
   }
 
-  // Reforco: se a sessao restaurada nao for @rivio.com.br, desloga.
   if(user.email && !user.email.toLowerCase().endsWith("@rivio.com.br")){
     auth.signOut();
     const errorEl = document.getElementById("auth-error");
