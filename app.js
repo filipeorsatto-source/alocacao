@@ -167,8 +167,9 @@ function createProject(){
   }
   const proj={
     id, name, macros, tasks,
-    expandedMacros: new Set(macros.map(m=>m.id).slice(0,2)),
-    expandedGantt: new Set(macros.map(m=>m.id)),
+    expandedMacros:    new Set(macros.map(m=>m.id).slice(0,2)),
+    expandedGantt:     new Set(macros.map(m=>m.id)),
+    expandedGanttSubs: new Set(),
     linearApiKey:"", linearProjectId:"", linearIssues:[],
   };
   projects.push(proj);
@@ -1552,16 +1553,62 @@ function buildGanttHTML(p){
           <div class="gantt-today" style="left:${todayPct}%"></div>
         </div>
       </div>`;
-    if(isExp){mts.forEach(t=>{const bar=getBarColor(t);rows+=`
-      <div class="gantt-row">
-        <div class="gantt-row-label" style="padding-left:32px">
-          <span style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1" title="${t.name}">${t.name}</span>
-        </div>
-        <div class="gantt-row-chart">${gridLinesLight}
-          <div class="gantt-bar" style="left:${pct(t.start)}%;width:${wid(t.start,t.end)}%;height:8px;background:${bar};opacity:.85" title="${t.name}: ${fmtDate(t.start)} → ${fmtDate(t.end)}"></div>
-          <div class="gantt-today" style="left:${todayPct}%;opacity:.35"></div>
-        </div>
-      </div>`;});}
+    if(isExp){
+      // Agrupa as tarefas por subetapa (na ordem de m.subetapas; tarefas sem
+      // subetapa cadastrada vao para um grupo "Sem subetapa" ao final).
+      const groups = new Map();
+      mts.forEach(t => {
+        const key = t.subetapa || "__sem_subetapa__";
+        if(!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(t);
+      });
+      // Ordem: usa a ordem das subetapas declaradas no macro; depois grupos
+      // extras que apareceram nas tarefas; "Sem subetapa" sempre por ultimo.
+      const ordered = [];
+      (m.subetapas||[]).forEach(s => { if(groups.has(s)) ordered.push(s); });
+      [...groups.keys()].forEach(k => {
+        if(k !== "__sem_subetapa__" && !ordered.includes(k)) ordered.push(k);
+      });
+      if(groups.has("__sem_subetapa__")) ordered.push("__sem_subetapa__");
+
+      ordered.forEach(subKey => {
+        const subTasks = groups.get(subKey);
+        const subLabel = subKey === "__sem_subetapa__" ? "Sem subetapa" : subKey;
+        const subStart = subTasks.reduce((mn,t)=>t.start<mn?t.start:mn, subTasks[0].start);
+        const subEnd   = subTasks.reduce((mx,t)=>t.end>mx?t.end:mx,    subTasks[0].end);
+        const subKeyId = m.id + "|" + subKey;
+        const subSafe  = subKey.replace(/'/g, "\\'");
+        const isSubExp = p.expandedGanttSubs && p.expandedGanttSubs.has(subKeyId);
+        rows += `
+          <div class="gantt-row" onclick="toggleGanttSub(${m.id},'${subSafe}')" style="cursor:pointer;background:#fcfcfd">
+            <div class="gantt-row-label" style="padding-left:24px">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">${isSubExp?'<polyline points="6 9 12 15 18 9"/>':'<polyline points="9 18 15 12 9 6"/>'}</svg>
+              <div style="width:6px;height:6px;border-radius:50%;background:${m.color}80;flex-shrink:0"></div>
+              <span style="font-size:11px;color:#6b7280;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1" title="${subLabel}">${subLabel}</span>
+              <span style="font-size:10px;color:#9ca3af;flex-shrink:0">${subTasks.length}</span>
+            </div>
+            <div class="gantt-row-chart">${gridLinesLight}
+              <div class="gantt-bar" style="left:${pct(subStart)}%;width:${wid(subStart,subEnd)}%;height:8px;background:${m.color}30;border:1px solid ${m.color}80" title="${subLabel}: ${fmtDate(subStart)} → ${fmtDate(subEnd)}"></div>
+              <div class="gantt-today" style="left:${todayPct}%;opacity:.35"></div>
+            </div>
+          </div>`;
+        if(isSubExp){
+          subTasks.forEach(t => {
+            const bar = getBarColor(t);
+            rows += `
+              <div class="gantt-row">
+                <div class="gantt-row-label" style="padding-left:52px">
+                  <span style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1" title="${t.name}">${t.name}</span>
+                </div>
+                <div class="gantt-row-chart">${gridLinesLight}
+                  <div class="gantt-bar" style="left:${pct(t.start)}%;width:${wid(t.start,t.end)}%;height:8px;background:${bar};opacity:.85" title="${t.name}: ${fmtDate(t.start)} → ${fmtDate(t.end)}"></div>
+                  <div class="gantt-today" style="left:${todayPct}%;opacity:.35"></div>
+                </div>
+              </div>`;
+          });
+        }
+      });
+    }
   });
   return `
     <div class="gantt-wrap">
@@ -1591,6 +1638,14 @@ function buildGanttHTML(p){
 }
 function toggleMacro(id){const p=getProject();if(!p)return;if(p.expandedMacros.has(id))p.expandedMacros.delete(id);else p.expandedMacros.add(id);render();}
 function toggleGantt(id){const p=getProject();if(!p)return;if(p.expandedGantt.has(id))p.expandedGantt.delete(id);else p.expandedGantt.add(id);render();}
+function toggleGanttSub(macroId, subKey){
+  const p=getProject();if(!p)return;
+  if(!p.expandedGanttSubs) p.expandedGanttSubs = new Set();
+  const k = macroId + "|" + subKey;
+  if(p.expandedGanttSubs.has(k)) p.expandedGanttSubs.delete(k);
+  else p.expandedGanttSubs.add(k);
+  render();
+}
 
 // ─── LINEAR ───────────────────────────────────────────────────────────────────
 function buildLinearHTML(p){
@@ -2604,8 +2659,9 @@ let _firebaseListenersStarted = false;
 function serializeProject(p) {
   return {
     ...p,
-    expandedMacros: p.expandedMacros ? [...p.expandedMacros] : [],
-    expandedGantt:  p.expandedGantt  ? [...p.expandedGantt]  : [],
+    expandedMacros:   p.expandedMacros   ? [...p.expandedMacros]   : [],
+    expandedGantt:    p.expandedGantt    ? [...p.expandedGantt]    : [],
+    expandedGanttSubs:p.expandedGanttSubs? [...p.expandedGanttSubs]: [],
   };
 }
 function deserializeProject(raw) {
@@ -2613,8 +2669,9 @@ function deserializeProject(raw) {
     ...raw,
     tasks:          raw.tasks          || [],
     macros:         raw.macros         || [],
-    expandedMacros: new Set(raw.expandedMacros || []),
-    expandedGantt:  new Set(raw.expandedGantt  || []),
+    expandedMacros:    new Set(raw.expandedMacros    || []),
+    expandedGantt:     new Set(raw.expandedGantt     || []),
+    expandedGanttSubs: new Set(raw.expandedGanttSubs || []),
     linearIssues:   raw.linearIssues   || [],
     linearApiKey:   raw.linearApiKey   || "",
     linearProjectId:raw.linearProjectId|| "",
@@ -2776,7 +2833,6 @@ db.ref("vacancies").on("value", snap => {
   if (!_fbFirstLoad) render();
 });
 
-// ── Connection indicator ───────────────────────────────────────────────────────
 db.ref(".info/connected").on("value", snap => {
   if (snap.val() === true) {
     showSyncToast("Conectado ao Firebase", "#10b981");
