@@ -1911,11 +1911,13 @@ function openModal(macroIdHint,taskId){
   document.getElementById("task-modal").classList.add("open");
 }
 function closeModal(){document.getElementById("task-modal").classList.remove("open");}
-// Auto-fill / clear data de conclusão quando o status muda no modal
+// Auto-fill / clear data de conclusao quando o status muda no modal.
+// "Finalizado" e "Acao Hospital" permitem/preservam a data de conclusao.
 function onStatusChange(){
   const status = document.getElementById("f-status").value;
   const compEl = document.getElementById("f-completed");
-  if(status === "Finalizado"){
+  const permite = status === "Finalizado" || status === "Ação Hospital";
+  if(permite){
     if(!compEl.value) compEl.value = todayStr();
   } else {
     compEl.value = "";
@@ -1966,8 +1968,10 @@ function saveTask(){
   }
   let completedAt=document.getElementById("f-completed").value || "";
   // Regras de auto-preenchimento da data de conclusão
-  if(status === "Finalizado" && !completedAt) completedAt = todayStr();
-  if(status !== "Finalizado") completedAt = "";
+  // Data de conclusao vale para Finalizado e Acao Hospital (mesmo tratamento).
+  const permiteConclusao = status === "Finalizado" || status === "Ação Hospital";
+  if(permiteConclusao && !completedAt) completedAt = todayStr();
+  if(!permiteConclusao) completedAt = "";
   const task={
     id,name:document.getElementById("f-name").value.trim()||"Sem título",
     macroId:Number(document.getElementById("f-macro").value),
@@ -2926,7 +2930,6 @@ auth.onAuthStateChanged(user => {
 
   if(user.email && !user.email.toLowerCase().endsWith("@rivio.com.br")){
     auth.signOut();
-    const errorEl = document.getElementById("auth-error");
     if(errorEl) errorEl.textContent = "Acesso restrito a contas @rivio.com.br.";
     return;
   }

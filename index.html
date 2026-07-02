@@ -126,7 +126,7 @@
         <div><label class="field-label">Início</label><input type="date" id="f-start"/></div>
         <div><label class="field-label" title="Data prazo planejada inicialmente. Se vazio, usa o Fim atual.">Fim Original</label><input type="date" id="f-end-original" title="Preencha quando o Fim for postergado, para preservar o prazo original (usado nos KPIs de atraso)"/></div>
         <div><label class="field-label">Fim</label><input type="date" id="f-end"/></div>
-        <div><label class="field-label">Conclusão</label><input type="date" id="f-completed" title="Preenchido automaticamente quando o status for Finalizado"/></div>
+        <div><label class="field-label">Conclusão</label><input type="date" id="f-completed" title="Preenchido automaticamente quando o status for Finalizado ou Ação Hospital"/></div>
       </div>
       <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
         <div><label class="field-label">Status</label><select id="f-status" onchange="onStatusChange()"><option>Não Iniciado</option><option>Em Execução</option><option>Ação Hospital</option><option>Finalizado</option></select></div>
