@@ -129,9 +129,14 @@
         <div><label class="field-label">Conclusão</label><input type="date" id="f-completed" title="Preenchido automaticamente quando o status for Finalizado"/></div>
       </div>
       <div class="modal-field" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div><label class="field-label">Status</label><select id="f-status" onchange="onStatusChange()"><option>Não Iniciado</option><option>Em Execução</option><option>Finalizado</option></select></div>
+        <div><label class="field-label">Status</label><select id="f-status" onchange="onStatusChange()"><option>Não Iniciado</option><option>Em Execução</option><option>Ação Hospital</option><option>Finalizado</option></select></div>
         <div><label class="field-label">Responsável</label><select id="f-resp"><option value="">— Sem responsável —</option></select></div>
         <div><label class="field-label">Esforço (1–5)</label><input type="number" id="f-effort" min="1" max="5" value="3"/></div>
+      </div>
+      <div class="modal-field" style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px">
+        <input type="checkbox" id="f-blocker" style="margin:0;cursor:pointer;accent-color:#ef4444"/>
+        <label for="f-blocker" style="font-size:13px;font-weight:600;color:#b91c1c;cursor:pointer;user-select:none">🚫 Tarefa bloqueante</label>
+        <span style="font-size:11px;color:#9ca3af;margin-left:4px">— impede o andamento de outras tarefas dependentes</span>
       </div>
       <div class="modal-field"><label class="field-label">Descrição</label><textarea id="f-desc" rows="2" placeholder="Detalhes..."></textarea></div>
       <div class="modal-field">

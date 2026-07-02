@@ -105,9 +105,21 @@ function calcProgress(tks){
   const done=tks.filter(t=>t.status==="Finalizado").reduce((s,t)=>s+t.effort,0);
   return total===0?0:Math.round((done/total)*100);
 }
-function getBadgeClass(t){ if(isOverdue(t))return"badge badge-late"; if(t.status==="Finalizado")return"badge badge-done"; if(t.status==="Em Execução")return"badge badge-run"; return"badge badge-ni"; }
+function getBadgeClass(t){
+  if(isOverdue(t))return"badge badge-late";
+  if(t.status==="Finalizado")return"badge badge-done";
+  if(t.status==="Em Execução")return"badge badge-run";
+  if(t.status==="Ação Hospital")return"badge badge-hospital";
+  return"badge badge-ni";
+}
 function getBadgeLabel(t){ return isOverdue(t)?"Atrasado":t.status; }
-function getBarColor(t){ if(isOverdue(t))return"#ef4444"; if(t.status==="Finalizado")return"#10b981"; if(t.status==="Em Execução")return"#3b82f6"; return"#9ca3af"; }
+function getBarColor(t){
+  if(isOverdue(t))return"#ef4444";
+  if(t.status==="Finalizado")return"#10b981";
+  if(t.status==="Em Execução")return"#3b82f6";
+  if(t.status==="Ação Hospital")return"#a855f7";
+  return"#9ca3af";
+}
 function dateFromOffset(base, off){
   const d = new Date(base); d.setDate(d.getDate()+off); return d.toISOString().slice(0,10);
 }
@@ -430,7 +442,7 @@ function renderTarefas(){
   const nomesAlocados  = allocEmployees.map(e => e.nome).filter(Boolean);
   const nomesEmTarefas = projects.flatMap(p => p.tasks.map(t => t.responsible).filter(Boolean));
   const allResp = [...new Set([...nomesAlocados, ...nomesEmTarefas])].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-  const allStatus = ["Não Iniciado","Em Execução","Finalizado"];
+  const allStatus = ["Não Iniciado","Em Execução","Ação Hospital","Finalizado"];
   // Semanas disponíveis: segundas-feiras das datas-fim em todas as tarefas
   const allSemanas = [...new Set(
     projects.flatMap(p => p.tasks.map(t => getMondayOfWeek(t.end)).filter(Boolean))
@@ -452,7 +464,7 @@ function renderTarefas(){
       return mon && tarefasFilterSemana.has(mon);
     });
     // Ordena: status (Em Execução → Não Iniciado → Finalizado) e depois por data fim
-    const statusOrder = { "Em Execução":0, "Não Iniciado":1, "Finalizado":2 };
+    const statusOrder = { "Em Execução":0, "Não Iniciado":1, "Ação Hospital":2, "Finalizado":3 };
     tasks.sort((a,b) => {
       const sa = statusOrder[a.status] ?? 3;
       const sb = statusOrder[b.status] ?? 3;
@@ -467,8 +479,8 @@ function renderTarefas(){
   const statusBadge = (t) => {
     const over = isOverdue(t);
     const label = over ? "Atrasada" : t.status;
-    const bg    = over ? "#fef2f2" : t.status === "Finalizado" ? "#f0fdf4" : t.status === "Em Execução" ? "#eff6ff" : "#f9fafb";
-    const fg    = over ? "#ef4444" : t.status === "Finalizado" ? "#15803d" : t.status === "Em Execução" ? "#1d4ed8" : "#6b7280";
+    const bg    = over ? "#fef2f2" : t.status === "Finalizado" ? "#f0fdf4" : t.status === "Em Execução" ? "#eff6ff" : t.status === "Ação Hospital" ? "#faf5ff" : "#f9fafb";
+    const fg    = over ? "#ef4444" : t.status === "Finalizado" ? "#15803d" : t.status === "Em Execução" ? "#1d4ed8" : t.status === "Ação Hospital" ? "#7e22ce" : "#6b7280";
     return `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:${bg};color:${fg};white-space:nowrap">${label}</span>`;
   };
 
@@ -560,7 +572,12 @@ function renderTarefas(){
       const macro = (p.macros.find(m => m.id === t.macroId) || {}).name || "—";
       return `
         <tr style="border-bottom:1px solid #f3f4f6">
-          <td style="padding:9px 12px;font-size:12px;color:#374151;font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.name||'').replace(/"/g,'&quot;')}">${t.name || "—"}</td>
+          <td style="padding:9px 12px;font-size:12px;color:#374151;font-weight:500;max-width:280px" title="${(t.name||'').replace(/"/g,'&quot;')}">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name || "—"}</span>
+              ${t.isBlocker ? `<span class="badge badge-blocker" title="Tarefa bloqueante" style="font-size:9px">🚫 Bloq.</span>` : ""}
+            </div>
+          </td>
           <td style="padding:9px 12px;font-size:11px;color:#6b7280;white-space:nowrap">${macro}${t.subetapa?` · <span style="color:#9ca3af">${t.subetapa}</span>`:""}</td>
           <td style="padding:9px 12px;font-size:12px;color:#374151;white-space:nowrap">${t.responsible || `<span style="color:#d1d5db">—</span>`}</td>
           <td style="padding:9px 12px;font-size:11px;color:#6b7280;white-space:nowrap">${t.end ? fmtDate(t.end) : `<span style="color:#d1d5db">—</span>`}</td>
@@ -620,6 +637,7 @@ function buildBaseRows(){
         macro,
         subetapa:   t.subetapa || "",
         tarefa:     t.name || "",
+        bloqueante: t.isBlocker ? "Sim" : "Não",
         inicio:     t.start || "",
         fimOriginal:t.originalEnd || "",
         fim:        t.end || "",
@@ -644,9 +662,9 @@ function baseSetSearch(v){ baseSearchTerm = (v||"").trim().toLowerCase(); render
 
 function baseExport(){
   const rows = buildBaseRows();
-  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Data Início","Data Fim Original","Data Fim","Data Conclusão","Esforço","Responsável","Área do Responsável","Status"];
+  const header = ["Projeto","Macro Etapa","Subetapa","Tarefa","Bloqueante","Data Início","Data Fim Original","Data Fim","Data Conclusão","Esforço","Responsável","Área do Responsável","Status"];
   const matrix = [header, ...rows.map(r => [
-    r.projeto, r.macro, r.subetapa, r.tarefa, r.inicio, r.fimOriginal, r.fim, r.conclusao, r.esforco, r.responsavel, r.areaResp, r.status
+    r.projeto, r.macro, r.subetapa, r.tarefa, r.bloqueante, r.inicio, r.fimOriginal, r.fim, r.conclusao, r.esforco, r.responsavel, r.areaResp, r.status
   ])];
   const csv = matrix.map(line => line.map(cell => {
     const s = String(cell ?? "");
@@ -683,6 +701,7 @@ function renderBase(){
     { key:"macro",       label:"Macro Etapa" },
     { key:"subetapa",    label:"Subetapa" },
     { key:"tarefa",      label:"Tarefa" },
+    { key:"bloqueante",  label:"Bloqueante",       align:"center" },
     { key:"inicio",      label:"Data Início",       fmt:fmtDate },
     { key:"fimOriginal", label:"Data Fim Original", fmt:fmtDate },
     { key:"fim",         label:"Data Fim",          fmt:fmtDate },
@@ -826,7 +845,7 @@ function renderDashboard(){
   }
 
   // ── Available filter options (derived from data) ───────────────────────────
-  const STATUS_OPTS  = ["Não Iniciado","Em Execução","Finalizado","Atrasado"];
+  const STATUS_OPTS  = ["Não Iniciado","Em Execução","Ação Hospital","Finalizado","Atrasado"];
   const allProdutos  = [...new Set(projects.map(p=>getProjectMeta(p.name).produto))].filter(Boolean).sort();
   const allEtapas    = [...new Set(projects.map(p=>getProjectMeta(p.name).etapa))].filter(Boolean).sort();
   // Farmers: união dos farmers de todos os projetos cadastrados (não dos filtrados, para
@@ -1478,7 +1497,10 @@ function renderSubBlock(p,m,sub){
             ${sts.map(t=>{const over=isOverdue(t);return`
               <tr style="border-bottom:1px solid #f9fafb">
                 <td style="padding:9px 14px 9px 34px">
-                  <div style="font-weight:600;color:#374151">${t.name}</div>
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <span style="font-weight:600;color:#374151">${t.name}</span>
+                    ${t.isBlocker ? `<span class="badge badge-blocker" title="Tarefa bloqueante">🚫 Bloqueante</span>` : ""}
+                  </div>
                   ${t.checklist.length>0?`<div style="font-size:10px;color:#9ca3af;margin-top:2px">${t.checklist.filter(c=>c.done).length}/${t.checklist.length} checklist</div>`:""}
                 </td>
                 <td style="padding:9px 14px">
@@ -1598,7 +1620,8 @@ function buildGanttHTML(p){
             rows += `
               <div class="gantt-row">
                 <div class="gantt-row-label" style="padding-left:52px">
-                  <span style="font-size:11px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1" title="${t.name}">${t.name}</span>
+                  ${t.isBlocker ? `<span title="Tarefa bloqueante" style="font-size:10px;flex-shrink:0">🚫</span>` : ""}
+                  <span style="font-size:11px;color:${t.isBlocker?'#b91c1c':'#9ca3af'};font-weight:${t.isBlocker?600:400};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1" title="${t.name}">${t.name}</span>
                 </div>
                 <div class="gantt-row-chart">${gridLinesLight}
                   <div class="gantt-bar" style="left:${pct(t.start)}%;width:${wid(t.start,t.end)}%;height:8px;background:${bar};opacity:.85" title="${t.name}: ${fmtDate(t.start)} → ${fmtDate(t.end)}"></div>
@@ -1863,6 +1886,7 @@ function openModal(macroIdHint,taskId){
   updateSubetapas();
   if(task)document.getElementById("f-sub").value=task.subetapa;
   document.getElementById("f-status").value=task?task.status:"Não Iniciado";
+  document.getElementById("f-blocker").checked=task?!!task.isBlocker:false;
   // ── Populate responsible dropdown ──────────────────────────────────────────
   // Find alloc project matching this implant project by name to get team members
   const matchedAllocProj = allocProjects.find(ap=>ap.nome===p.name);
@@ -1951,6 +1975,7 @@ function saveTask(){
     start:document.getElementById("f-start").value,
     end:document.getElementById("f-end").value,
     originalEnd:document.getElementById("f-end-original").value || "",
+    isBlocker:document.getElementById("f-blocker").checked === true,
     completedAt,
     status,
     responsible:document.getElementById("f-resp").value||"",
@@ -2873,7 +2898,6 @@ function setupAuthUI(){
           return;
         }
       } catch (err) {
-        console.error("Google sign-in error:", err);
         errorEl.textContent = "Nao foi possivel entrar com Google. Verifique se o provedor esta habilitado no Firebase.";
       } finally {
         loginBtn.disabled = false;

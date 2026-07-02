@@ -35,6 +35,8 @@ html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;back
 .badge-run{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .badge-done{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
 .badge-late{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+.badge-hospital{background:#faf5ff;color:#7e22ce;border-color:#e9d5ff}
+.badge-blocker{background:#fef2f2;color:#b91c1c;border-color:#fecaca;display:inline-flex;align-items:center;gap:3px;padding:2px 7px}
 .field-label{font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
 input[type=text],input[type=date],input[type=number],input[type=password],select,textarea{padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:inherit;color:#111;background:#fff;outline:none;width:100%;transition:border-color .12s}
 input:focus,select:focus,textarea:focus{border-color:#6366f1}
